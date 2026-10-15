@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SDCodex – Caption Models</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "background": "#0f131c", "surface": "#0f131c",
+        "surface-container-lowest": "#0a0e17",
+        "surface-container-low":  "#181b25",
+        "surface-container":      "#1c1f29",
+        "surface-container-high": "#262a34",
+        "on-surface":             "#dfe2ef",
+        "on-surface-variant":     "#c7c4d7",
+        "primary":                "#c0c1ff",
+        "outline":                "#908fa0",
+        "outline-variant":        "#464554",
+        "slate-bg":               "#0F172A",
+        "slate-surface":          "#1E293B",
+        "badge-checkpoint":       "#6366F1",
+        "badge-lora":             "#8B5CF6",
+        "secondary":              "#4cd7f6",
+        "status-active":          "#10B981",
+        "status-warning":         "#F59E0B",
+        "status-alert":           "#EF4444",
+      },
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20; line-height:1; display:inline-block; vertical-align:middle; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:rgba(10,14,23,0.6); }
+  ::-webkit-scrollbar-thumb { background:rgba(51,65,85,0.6); border-radius:2px; }
+  .progress-fill { transition: width 0.4s ease; }
+</style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface" style="font-family:Inter,sans-serif;font-size:14px;">
+
+<div class="max-w-2xl mx-auto p-6 flex flex-col gap-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-badge-lora text-[24px]">model_training</span>
+    <div>
+      <h1 style="font-family:Geist,sans-serif;font-size:18px;font-weight:700;line-height:1.2;">Caption Models</h1>
+      <p class="text-on-surface-variant text-xs">Download Qwen3-VL-8B GGUF captioning models from HuggingFace to your Caption Models volume.</p>
+    </div>
+  </div>
+
+  <!-- Settings card -->
+  <div class="rounded-lg border border-outline-variant/30 bg-surface-container p-4 flex flex-col gap-4">
+    <h2 style="font-family:Geist,sans-serif;font-size:14px;font-weight:600;" class="text-on-surface flex items-center gap-2">
+      <span class="material-symbols-outlined text-[16px] text-outline">settings</span>
+      HuggingFace Settings
+    </h2>
+    <div class="flex flex-col gap-3">
+      <div>
+        <label class="block text-xs text-on-surface-variant mb-1">HuggingFace Token <span class="text-outline">(optional for public repos)</span></label>
+        <div class="flex items-center gap-2">
+          <input id="hf-token" type="password" placeholder="hf_…"
+                 class="flex-1 bg-surface-container-lowest border border-outline-variant/40 rounded px-3 py-1.5 text-sm text-on-surface placeholder:text-outline/50 focus:outline-none focus:border-badge-checkpoint"/>
+          <button id="toggle-token" class="p-2 rounded border border-outline-variant/30 hover:border-badge-checkpoint text-on-surface-variant transition-colors">
+            <span id="toggle-icon" class="material-symbols-outlined text-[16px]">visibility</span>
+          </button>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-on-surface-variant mb-1">Model Repository</label>
+        <input id="hf-repo" type="text" value="nakedlittlezombie/Qwen3-VL-8B-Thinking-heretic"
+               class="w-full bg-surface-container-lowest border border-outline-variant/40 rounded px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-badge-checkpoint"/>
+        <p class="text-xs text-outline mt-1">HuggingFace repo ID, e.g. <code>username/model-name</code></p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btn-save" class="px-4 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white text-xs font-semibold active:scale-[0.98] transition-all">
+        Save Settings
+      </button>
+      <span id="save-msg" class="hidden text-xs text-status-active">✓ Saved</span>
+    </div>
+  </div>
+
+  <!-- Models list -->
+  <div class="rounded-lg border border-outline-variant/30 bg-surface-container p-4 flex flex-col gap-3">
+    <div class="flex items-center justify-between">
+      <h2 style="font-family:Geist,sans-serif;font-size:14px;font-weight:600;" class="text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-[16px] text-outline">download</span>
+        Preset Models
+      </h2>
+      <span id="models-dir" class="text-xs text-outline font-mono"></span>
+    </div>
+    <div id="options-list" class="flex flex-col gap-2"></div>
+  </div>
+
+  <!-- Download progress -->
+  <div id="dl-progress" class="hidden rounded-lg border border-outline-variant/30 bg-surface-container p-4 flex flex-col gap-3">
+    <div class="flex items-center justify-between">
+      <span id="dl-file" class="text-xs font-mono text-primary truncate"></span>
+      <button id="btn-stop" class="px-2.5 py-1 rounded bg-status-alert/20 border border-status-alert/40 text-status-alert text-xs font-semibold hover:bg-status-alert/30 active:scale-[0.98] transition-all">
+        Stop
+      </button>
+    </div>
+    <div class="w-full h-2 bg-surface-container-lowest rounded overflow-hidden">
+      <div id="dl-bar" class="progress-fill h-full bg-gradient-to-r from-badge-checkpoint to-badge-lora rounded" style="width:0%"></div>
+    </div>
+    <div class="flex items-center justify-between text-xs text-on-surface-variant">
+      <span id="dl-bytes"></span>
+      <span id="dl-speed"></span>
+    </div>
+    <div id="dl-msg" class="text-xs text-on-surface-variant"></div>
+  </div>
+
+</div>
+
+<script>
+const MODELS_API = '/comfy-caption/models';
+let pollTimer = null;
+let data = { options:[], settings:{}, models_dir:'', present:{} };
+
+// ─── Load state ───────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const r = await fetch(`${MODELS_API}/list`);
+    data = await r.json();
+    document.getElementById('hf-token').value = data.settings.hf_token || '';
+    document.getElementById('hf-repo').value  = data.settings.repo || '';
+    document.getElementById('models-dir').textContent = data.models_dir || '';
+    renderOptions();
+  } catch(e) { console.error(e); }
+}
+
+function fmtBytes(b) {
+  if (!b) return '0 B';
+  const units = ['B','KB','MB','GB','TB'];
+  let i = 0; let n = b;
+  while (n >= 1024 && i < units.length-1) { n /= 1024; i++; }
+  return n.toFixed(1) + ' ' + units[i];
+}
+
+function renderOptions() {
+  const list = document.getElementById('options-list');
+  list.innerHTML = '';
+  for (const opt of (data.options||[])) {
+    const bothDone = opt.gguf_done && opt.mmproj_done;
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between p-3 rounded border border-outline-variant/20 bg-surface-container-lowest/40';
+    row.innerHTML = `
+      <div class="flex flex-col gap-0.5 min-w-0">
+        <div class="flex items-center gap-2">
+          <span style="font-family:Geist,sans-serif;font-weight:600;" class="text-on-surface">${opt.label}</span>
+          <span class="text-xs text-outline">(${opt.size})</span>
+          ${bothDone ? '<span class="px-1.5 py-0.5 rounded bg-status-active/20 border border-status-active/40 text-status-active text-[10px] font-semibold">DOWNLOADED</span>' : ''}
+        </div>
+        <div class="font-mono text-xs text-on-surface-variant truncate">${opt.gguf}</div>
+        <div class="font-mono text-xs text-on-surface-variant/60 truncate">+ ${opt.mmproj}</div>
+      </div>
+      <button data-key="${opt.key}" class="btn-download shrink-0 ml-3 px-3 py-1.5 rounded ${bothDone ? 'bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:border-badge-checkpoint hover:text-primary' : 'bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white shadow-[0_0_8px_rgba(99,102,241,0.3)]'} text-xs font-semibold active:scale-[0.98] transition-all">
+        ${bothDone ? 'Re-download' : 'Download'}
+      </button>`;
+    list.appendChild(row);
+  }
+
+  document.querySelectorAll('.btn-download').forEach(btn => {
+    btn.addEventListener('click', () => startDownload(btn.dataset.key));
+  });
+}
+
+// ─── Save settings ────────────────────────────────────────────────────────────
+document.getElementById('btn-save').addEventListener('click', async () => {
+  try {
+    const r = await fetch(`${MODELS_API}/save`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ hf_token: document.getElementById('hf-token').value, repo: document.getElementById('hf-repo').value }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const msg = document.getElementById('save-msg');
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 2000);
+    }
+  } catch(e) { alert('Save failed: ' + e.message); }
+});
+
+// Token visibility toggle
+document.getElementById('toggle-token').addEventListener('click', () => {
+  const inp = document.getElementById('hf-token');
+  const icon = document.getElementById('toggle-icon');
+  if (inp.type === 'password') { inp.type = 'text'; icon.textContent = 'visibility_off'; }
+  else { inp.type = 'password'; icon.textContent = 'visibility'; }
+});
+
+// ─── Start download ───────────────────────────────────────────────────────────
+async function startDownload(optionKey) {
+  try {
+    const r = await fetch(`${MODELS_API}/download`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        option:   optionKey,
+        repo:     document.getElementById('hf-repo').value,
+        hf_token: document.getElementById('hf-token').value,
+      }),
+    });
+    const d = await r.json();
+    if (!d.ok) { alert('Could not start: ' + d.message); return; }
+    document.getElementById('dl-progress').classList.remove('hidden');
+    startPolling();
+  } catch(e) { alert('Download error: ' + e.message); }
+}
+
+// ─── Stop ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-stop').addEventListener('click', async () => {
+  await fetch(`${MODELS_API}/stop`, { method:'POST' });
+});
+
+// ─── Poll job status ──────────────────────────────────────────────────────────
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(pollStatus, 800);
+}
+
+function stopPolling() {
+  clearInterval(pollTimer); pollTimer = null;
+}
+
+async function pollStatus() {
+  try {
+    const r = await fetch(`${MODELS_API}/status`);
+    const s = await r.json();
+    updateProgress(s);
+    if (['done','error','cancelled','idle'].includes(s.state)) {
+      stopPolling();
+      if (s.state === 'done') { await loadData(); }   // refresh badges
+    }
+  } catch(e) {}
+}
+
+function updateProgress(s) {
+  const wrap  = document.getElementById('dl-progress');
+  const bar   = document.getElementById('dl-bar');
+  const file  = document.getElementById('dl-file');
+  const bytes = document.getElementById('dl-bytes');
+  const speed = document.getElementById('dl-speed');
+  const msg   = document.getElementById('dl-msg');
+
+  if (s.state === 'idle') { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+
+  file.textContent = s.file || '';
+  msg.textContent  = s.message || '';
+
+  if (s.total_bytes > 0) {
+    const pct = Math.min(100, (s.done_bytes / s.total_bytes) * 100);
+    bar.style.width = pct.toFixed(1) + '%';
+    bytes.textContent = `${fmtBytes(s.done_bytes)} / ${fmtBytes(s.total_bytes)}`;
+  } else {
+    bar.style.width = s.state === 'done' ? '100%' : '0%';
+    bytes.textContent = fmtBytes(s.done_bytes);
+  }
+
+  speed.textContent = s.speed > 0 ? `${fmtBytes(s.speed)}/s` : '';
+
+  if (s.state === 'done') {
+    bar.style.width = '100%';
+    msg.textContent = '✓ All files downloaded';
+  } else if (s.state === 'error') {
+    bar.classList.add('bg-status-alert/60');
+  } else if (s.state === 'cancelled') {
+    msg.textContent = 'Cancelled';
+  }
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+loadData();
+
+// Check if a download is already in progress
+(async () => {
+  try {
+    const r = await fetch(`${MODELS_API}/status`);
+    const s = await r.json();
+    if (s.state === 'downloading') {
+      document.getElementById('dl-progress').classList.remove('hidden');
+      updateProgress(s);
+      startPolling();
+    }
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
