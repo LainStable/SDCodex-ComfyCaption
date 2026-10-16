@@ -91,6 +91,9 @@ tailwind.config = {
   #caption-editor { resize: none; }
   .progress-fill { transition: width 0.3s ease; }
   .asset-card.active { border-color: #6366F1; box-shadow: 0 0 12px rgba(99,102,241,0.3); }
+  #image-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); align-content: start; }
+  .asset-thumbnail { aspect-ratio: 4 / 3; background: #080b12; }
+  .asset-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; }
 </style>
 </head>
 <body class="bg-surface-container-lowest text-on-surface font-body-md antialiased flex min-h-screen flex-col overflow-y-auto">
@@ -100,7 +103,7 @@ tailwind.config = {
   <div class="flex items-center gap-3">
     <span class="material-symbols-outlined text-badge-lora text-[20px]">subtitles</span>
     <span class="font-headline-sm text-headline-sm font-bold tracking-tight">ComfyCaption</span>
-    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-badge-checkpoint/15 border border-badge-checkpoint/40 text-primary uppercase tracking-wider">v2.4.4</span>
+    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-badge-checkpoint/15 border border-badge-checkpoint/40 text-primary uppercase tracking-wider">v2.4.5</span>
     <div id="conn-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-active/10 border border-status-active/30 text-status-active font-code-sm text-code-sm">
       <span class="w-1.5 h-1.5 rounded-full bg-status-active animate-ping"></span>
       <span id="conn-text">Connected</span>
@@ -496,7 +499,7 @@ function renderGrid() {
     const card = document.createElement('div');
     card.className = `asset-card relative group rounded-lg overflow-hidden border ${img.hasCaption ? 'border-status-active/30' : 'border-outline-variant/30'} hover:border-badge-checkpoint/60 bg-surface-container/30 p-1 cursor-pointer transition-all`;
     card.innerHTML = `
-      <div class="relative aspect-square rounded overflow-hidden bg-black/40">
+      <div class="asset-thumbnail relative rounded overflow-hidden">
         <img src="${img.image}" alt="${img.file}" class="w-full h-full object-cover"/>
         <div class="absolute bottom-1 right-1">
           <span class="font-label-sm text-[9px] px-1 py-0.5 rounded font-bold ${img.hasCaption ? 'bg-status-active/90 text-surface-container-lowest' : 'bg-status-warning/90 text-surface-container-lowest'}">
