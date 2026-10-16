@@ -19,6 +19,7 @@ import re
 import socket
 import struct
 import threading
+import time
 from io import BytesIO
 
 from flask import Blueprint, Response, jsonify, request
@@ -470,10 +471,8 @@ def caption_single():
         return jsonify({"error": str(e)}), 500
 
 
-@caption_bp.post("/caption")
-def caption_batch():
-    """Start a background batch; work continues if the browser page closes."""
-    data = request.get_json(silent=True) or {}
+def _start_caption_batch(data):
+    """Validate and launch a background batch, returning its id and count."""
     folder_path = (data.get("folderPath") or "").strip("\"'")
     prompt = data.get("prompt", "Caption this image")
     url = _reachable_url(data.get("lmStudioUrl", "http://localhost:1234/v1"))
@@ -482,26 +481,25 @@ def caption_batch():
     trigger_tag = (data.get("triggerTag") or "").strip()
 
     if not folder_path or not os.path.isdir(folder_path):
-        return jsonify({"error": "folderPath is required and must exist"}), 400
+        return None, None, (jsonify({"error": "folderPath is required and must exist"}), 400)
     if not _OPENAI_OK:
-        return jsonify({"error": "openai package not installed"}), 500
-
+        return None, None, (jsonify({"error": "openai package not installed"}), 500)
     try:
         client = OpenAI(api_key="not-needed", base_url=url)
         client.models.list(timeout=5.0)
     except Exception as e:
-        return jsonify({"error": f"LLM instance not reachable: {e}"}), 500
+        return None, None, (jsonify({"error": f"LLM instance not reachable: {e}"}), 500)
 
     image_files = sorted(
         f for f in os.listdir(folder_path)
         if os.path.splitext(f)[1].lower() in IMAGE_EXTENSIONS
     )
     if not image_files:
-        return jsonify({"error": "No images found in folder"}), 400
+        return None, None, (jsonify({"error": "No images found in folder"}), 400)
 
     with _batch_lock:
         if _batch["state"] in ("running", "cancelling"):
-            return jsonify({"error": "A caption batch is already running", "jobId": _batch["job_id"]}), 409
+            return None, None, (jsonify({"error": "A caption batch is already running", "jobId": _batch["job_id"]}), 409)
         _batch.update({
             "job_id": _batch["job_id"] + 1, "state": "running", "folder_path": folder_path,
             "current": 0, "total": len(image_files), "file": "", "event_id": 0,
@@ -514,7 +512,40 @@ def caption_batch():
         daemon=True,
     )
     worker.start()
-    return jsonify({"ok": True, "jobId": job_id, "total": len(image_files), "state": "running"}), 202
+    return job_id, len(image_files), None
+
+
+@caption_bp.post("/batch/start")
+def start_caption_batch():
+    job_id, total, error = _start_caption_batch(request.get_json(silent=True) or {})
+    if error:
+        return error
+    return jsonify({"ok": True, "jobId": job_id, "total": total, "state": "running"}), 202
+
+
+@caption_bp.post("/caption")
+def caption_batch():
+    """Backward-compatible SSE stream; disconnecting does not stop the worker."""
+    job_id, total, error = _start_caption_batch(request.get_json(silent=True) or {})
+    if error:
+        return error
+
+    def generate():
+        since = 0
+        while True:
+            with _batch_lock:
+                if job_id != _batch["job_id"]:
+                    break
+                events = [event for event in _batch["events"] if event["eventId"] > since]
+                state = _batch["state"]
+            for event in events:
+                since = max(since, event["eventId"])
+                yield f"data: {json.dumps(event)}\n\n"
+            if state in ("complete", "cancelled"):
+                break
+            time.sleep(0.25)
+
+    return Response(generate(), mimetype="text/event-stream")
 
 
 @caption_bp.get("/batch/status")
