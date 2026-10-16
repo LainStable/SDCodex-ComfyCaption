@@ -94,9 +94,12 @@ def _reachable_url(url):
 
 
 def _is_safe_path(base, target):
-    resolved_base = os.path.abspath(base)
-    resolved_target = os.path.abspath(target)
-    return resolved_target.startswith(resolved_base)
+    resolved_base = os.path.realpath(base)
+    resolved_target = os.path.realpath(target)
+    try:
+        return os.path.commonpath((resolved_base, resolved_target)) == resolved_base
+    except ValueError:
+        return False
 
 
 def _process_image_for_llm(image_path):
@@ -286,6 +289,28 @@ def get_images():
         "totalPages": total_pages,
         "limit": limit,
     })
+
+
+@caption_bp.post("/save-caption")
+def save_caption():
+    """Write a caption sidecar beside an image in the selected folder."""
+    data = request.get_json(silent=True) or {}
+    folder = (data.get("folderPath") or "").strip().strip("\"'")
+    filename = os.path.basename(data.get("fileName") or "")
+    if not folder or not filename or os.path.splitext(filename)[1].lower() not in IMAGE_EXTENSIONS:
+        return jsonify({"ok": False, "error": "A valid image folder and filename are required"}), 400
+    image_path = os.path.join(folder, filename)
+    if not _is_safe_path(folder, image_path) or not os.path.isfile(image_path):
+        return jsonify({"ok": False, "error": "Image file not found"}), 404
+    caption = data.get("caption", "")
+    if not isinstance(caption, str):
+        return jsonify({"ok": False, "error": "Caption must be text"}), 400
+    try:
+        with open(os.path.splitext(image_path)[0] + ".txt", "w", encoding="utf-8") as fh:
+            fh.write(caption.strip())
+        return jsonify({"ok": True, "caption": caption.strip()})
+    except OSError as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @caption_bp.post("/caption-single")

@@ -534,9 +534,9 @@ async function saveCaption() {
   if (!img || !folderPath) return;
   const text = captionEditor.value.trim();
   try {
-    const r = await fetch('/gallery/api/caption', {
+    const r = await fetch(`${API}/save-caption`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ folder: folderPath, file: img.file, caption: text }),
+      body: JSON.stringify({ folderPath, fileName: img.file, caption: text }),
     });
     const d = await r.json();
     if (d.ok) {
