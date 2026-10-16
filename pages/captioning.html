@@ -100,7 +100,7 @@ tailwind.config = {
   <div class="flex items-center gap-3">
     <span class="material-symbols-outlined text-badge-lora text-[20px]">subtitles</span>
     <span class="font-headline-sm text-headline-sm font-bold tracking-tight">ComfyCaption</span>
-    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-badge-checkpoint/15 border border-badge-checkpoint/40 text-primary uppercase tracking-wider">v2.4.1</span>
+    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-badge-checkpoint/15 border border-badge-checkpoint/40 text-primary uppercase tracking-wider">v2.4.2</span>
     <div id="conn-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-active/10 border border-status-active/30 text-status-active font-code-sm text-code-sm">
       <span class="w-1.5 h-1.5 rounded-full bg-status-active animate-ping"></span>
       <span id="conn-text">Connected</span>
@@ -156,6 +156,14 @@ tailwind.config = {
   <select id="model-select" class="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-body-sm text-on-surface focus:outline-none focus:border-badge-checkpoint">
     <option value="">— select model —</option>
   </select>
+</div>
+
+<!-- Saved prompt presets from the previous captioning version. -->
+<div class="shrink-0 flex items-center gap-2 px-4 py-1 border-b border-outline-variant/20 bg-surface-container/40 text-body-sm">
+  <span class="font-label-sm text-label-sm text-outline uppercase tracking-wider whitespace-nowrap">Prompt Presets</span>
+  <select id="saved-prompt-select" class="min-w-0 flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded px-2 py-1 text-body-sm text-on-surface"><option value="">Choose a saved prompt</option></select>
+  <button id="save-prompt-btn" class="rounded border border-outline-variant/40 px-2 py-1 text-[11px] text-on-surface hover:border-badge-checkpoint">Save current</button>
+  <button id="delete-prompt-btn" class="rounded border border-outline-variant/40 px-2 py-1 text-[11px] text-outline hover:text-status-alert">Delete selected</button>
 </div>
 
 <!-- ===== PROMPT / TRIGGER BAR ===== -->
@@ -327,6 +335,7 @@ const lmUrl         = document.getElementById('lm-url');
 const modelSelect   = document.getElementById('model-select');
 const promptInput   = document.getElementById('prompt-input');
 const triggerTag    = document.getElementById('trigger-tag');
+const promptSelect  = document.getElementById('saved-prompt-select');
 const modeSelect    = document.getElementById('mode-select');
 const imageGrid     = document.getElementById('image-grid');
 const gridEmpty     = document.getElementById('grid-empty');
@@ -358,6 +367,38 @@ const prevPage      = document.getElementById('prev-page');
 const nextPage      = document.getElementById('next-page');
 const pageInfo      = document.getElementById('page-info');
 
+// Keep caption options shared with Gallery's one-click and bulk caption actions.
+lmUrl.value = localStorage.getItem('captionLmStudioUrl') || lmUrl.value;
+promptInput.value = localStorage.getItem('captionPrompt') || promptInput.value;
+triggerTag.value = localStorage.getItem('captionTriggerTag') || '';
+folderInput.value = localStorage.getItem('captioningFolderPath') || '';
+lmUrl.addEventListener('change', () => localStorage.setItem('captionLmStudioUrl', lmUrl.value.trim()));
+promptInput.addEventListener('change', () => localStorage.setItem('captionPrompt', promptInput.value));
+triggerTag.addEventListener('change', () => localStorage.setItem('captionTriggerTag', triggerTag.value.trim()));
+folderInput.addEventListener('change', () => localStorage.setItem('captioningFolderPath', folderInput.value.trim()));
+modelSelect.addEventListener('change', () => localStorage.setItem('captionModel', modelSelect.value));
+
+function loadPromptPresets() {
+  let presets = [];
+  try { const value = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); if (Array.isArray(value)) presets = value.filter(x => typeof x === 'string' && x.trim()); } catch (_) {}
+  promptSelect.innerHTML = '<option value="">Choose a saved prompt</option>' + presets.map((value, index) => `<option value="${index}">${value.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</option>`).join('');
+  promptSelect.onchange = () => { if (promptSelect.value !== '') promptInput.value = presets[Number(promptSelect.value)] || ''; };
+}
+loadPromptPresets();
+document.getElementById('save-prompt-btn').addEventListener('click', () => {
+  const value = promptInput.value.trim(); if (!value) return;
+  let presets = []; try { presets = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); } catch (_) {}
+  if (!Array.isArray(presets)) presets = [];
+  if (!presets.includes(value)) presets.push(value);
+  localStorage.setItem('savedCaptionPrompts', JSON.stringify(presets)); loadPromptPresets();
+});
+document.getElementById('delete-prompt-btn').addEventListener('click', () => {
+  if (promptSelect.value === '') return;
+  let presets = []; try { presets = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); } catch (_) {}
+  if (!Array.isArray(presets)) return;
+  presets.splice(Number(promptSelect.value), 1); localStorage.setItem('savedCaptionPrompts', JSON.stringify(presets)); loadPromptPresets();
+});
+
 // ─── Connect to LM Studio ─────────────────────────────────────────────────────
 document.getElementById('btn-connect').addEventListener('click', checkConnection);
 
@@ -381,7 +422,11 @@ async function checkConnection() {
         o.value = m.id; o.textContent = m.id;
         modelSelect.appendChild(o);
       }
-      if (d.models && d.models.length === 1) modelSelect.value = d.models[0].id;
+      const savedModel = localStorage.getItem('captionModel');
+      if (savedModel && [...modelSelect.options].some(o => o.value === savedModel)) modelSelect.value = savedModel;
+      if (!savedModel && d.models && d.models.length === 1) modelSelect.value = d.models[0].id;
+      localStorage.setItem('captionModel', modelSelect.value);
+      localStorage.setItem('captionLmStudioUrl', lmUrl.value.trim());
       enableBatch();
     } else {
       connBadgeErr.classList.remove('hidden'); connBadgeErr.classList.add('flex');
@@ -402,6 +447,8 @@ document.getElementById('btn-load').addEventListener('click', () => loadFolder(f
 async function loadFolder(path) {
   if (!path) return;
   folderPath = path;
+  folderInput.value = path;
+  localStorage.setItem('captioningFolderPath', path);
   page = 1; allImages = [];
   await fetchPage();
   enableBatch();
@@ -779,6 +826,8 @@ async function browseTo(path) {
     }
   } catch(e) { browseList.innerHTML = `<div class="p-3 text-status-alert">${e.message}</div>`; }
 }
+
+if (folderInput.value.trim()) void loadFolder(folderInput.value.trim());
 </script>
 </body>
 </html>
