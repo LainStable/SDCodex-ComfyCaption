@@ -64,16 +64,7 @@ tailwind.config = {
       HuggingFace Settings
     </h2>
     <div class="flex flex-col gap-3">
-      <div>
-        <label class="block text-xs text-on-surface-variant mb-1">HuggingFace Token <span class="text-outline">(optional for public repos)</span></label>
-        <div class="flex items-center gap-2">
-          <input id="hf-token" type="password" placeholder="hf_…"
-                 class="flex-1 bg-surface-container-lowest border border-outline-variant/40 rounded px-3 py-1.5 text-sm text-on-surface placeholder:text-outline/50 focus:outline-none focus:border-badge-checkpoint"/>
-          <button id="toggle-token" class="p-2 rounded border border-outline-variant/30 hover:border-badge-checkpoint text-on-surface-variant transition-colors">
-            <span id="toggle-icon" class="material-symbols-outlined text-[16px]">visibility</span>
-          </button>
-        </div>
-      </div>
+      <p class="text-xs text-on-surface-variant">HuggingFace access keys are managed in Settings → API keys.</p>
       <div>
         <label class="block text-xs text-on-surface-variant mb-1">Model Repository</label>
         <input id="hf-repo" type="text" value="nakedlittlezombie/Qwen3-VL-8B-Thinking-heretic"
@@ -131,7 +122,6 @@ async function loadData() {
   try {
     const r = await fetch(`${MODELS_API}/list`);
     data = await r.json();
-    document.getElementById('hf-token').value = data.settings.hf_token || '';
     document.getElementById('hf-repo').value  = data.settings.repo || '';
     document.getElementById('models-dir').textContent = data.models_dir || '';
     renderOptions();
@@ -179,7 +169,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   try {
     const r = await fetch(`${MODELS_API}/save`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ hf_token: document.getElementById('hf-token').value, repo: document.getElementById('hf-repo').value }),
+      body: JSON.stringify({ repo: document.getElementById('hf-repo').value }),
     });
     const d = await r.json();
     if (d.ok) {
@@ -190,14 +180,6 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   } catch(e) { alert('Save failed: ' + e.message); }
 });
 
-// Token visibility toggle
-document.getElementById('toggle-token').addEventListener('click', () => {
-  const inp = document.getElementById('hf-token');
-  const icon = document.getElementById('toggle-icon');
-  if (inp.type === 'password') { inp.type = 'text'; icon.textContent = 'visibility_off'; }
-  else { inp.type = 'password'; icon.textContent = 'visibility'; }
-});
-
 // ─── Start download ───────────────────────────────────────────────────────────
 async function startDownload(optionKey) {
   try {
@@ -206,7 +188,6 @@ async function startDownload(optionKey) {
       body: JSON.stringify({
         option:   optionKey,
         repo:     document.getElementById('hf-repo').value,
-        hf_token: document.getElementById('hf-token').value,
       }),
     });
     const d = await r.json();

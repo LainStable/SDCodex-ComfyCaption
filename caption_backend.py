@@ -18,6 +18,7 @@ import os
 import re
 import socket
 import struct
+import threading
 from io import BytesIO
 
 from flask import Blueprint, Response, jsonify, request
@@ -53,6 +54,93 @@ except ImportError:
 caption_bp = Blueprint("caption_bp", __name__, url_prefix="/comfy-caption/api")
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
+_batch_lock = threading.RLock()
+_batch = {
+    "job_id": 0, "state": "idle", "folder_path": "", "current": 0,
+    "total": 0, "file": "", "event_id": 0, "events": [], "cancel": False,
+}
+
+
+def _batch_emit(job_id, event):
+    with _batch_lock:
+        if job_id != _batch["job_id"]:
+            return
+        _batch["event_id"] += 1
+        _batch["events"].append({**event, "eventId": _batch["event_id"]})
+        _batch["events"] = _batch["events"][-300:]
+        for key in ("current", "total", "file"):
+            if key in event:
+                _batch[key] = event[key]
+        if event.get("status") in ("complete", "cancelled"):
+            _batch["state"] = event["status"]
+        elif event.get("status") == "error":
+            _batch["last_error"] = event.get("error", "")
+
+
+def _run_caption_batch(job_id, image_files, folder_path, prompt, url, model, mode, trigger_tag):
+    total = len(image_files)
+    try:
+        client = OpenAI(api_key="not-needed", base_url=url)
+        for idx, fname in enumerate(image_files, start=1):
+            with _batch_lock:
+                if job_id != _batch["job_id"] or _batch["cancel"]:
+                    break
+            img_path = os.path.join(folder_path, fname)
+            txt_path = os.path.join(folder_path, os.path.splitext(fname)[0] + ".txt")
+
+            if mode == "missing" and os.path.isfile(txt_path):
+                try:
+                    with open(txt_path, "r", encoding="utf-8") as fh:
+                        existing = fh.read()
+                    sd = _read_sd_info(img_path)
+                    _batch_emit(job_id, {
+                        "status": "success", "current": idx, "total": total,
+                        "file": fname, "caption": existing,
+                        "sdPrompt": sd["sdPrompt"], "sdNegative": sd["sdNegative"],
+                        "sdSetting": sd["sdSetting"], "skipped": True,
+                        "hasWorkflow": _extract_comfy_workflow(img_path) is not None,
+                    })
+                except Exception as e:
+                    _batch_emit(job_id, {"status": "error", "current": idx, "total": total, "file": fname, "error": str(e)})
+                continue
+
+            _batch_emit(job_id, {"status": "started", "current": idx, "total": total, "file": fname})
+            try:
+                llm_b64 = _process_image_for_llm(img_path)
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": llm_b64}},
+                        ],
+                    }],
+                )
+                raw = resp.choices[0].message.content
+                caption = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+                if trigger_tag:
+                    caption = f"{trigger_tag}, {caption}"
+                caption, sd = _build_caption_with_sd(caption, img_path)
+                with open(txt_path, "w", encoding="utf-8") as fh:
+                    fh.write(caption)
+                _batch_emit(job_id, {
+                    "status": "success", "current": idx, "total": total,
+                    "file": fname, "caption": caption,
+                    "sdPrompt": sd["sdPrompt"], "sdNegative": sd["sdNegative"],
+                    "sdSetting": sd["sdSetting"],
+                    "hasWorkflow": _extract_comfy_workflow(img_path) is not None,
+                })
+            except Exception as e:
+                _batch_emit(job_id, {"status": "error", "current": idx, "total": total, "file": fname, "error": str(e)})
+
+        with _batch_lock:
+            cancelled = job_id == _batch["job_id"] and _batch["cancel"]
+            current = _batch["current"]
+        _batch_emit(job_id, {"status": "cancelled" if cancelled else "complete", "current": current, "total": total})
+    except Exception as e:
+        _batch_emit(job_id, {"status": "error", "file": "", "error": str(e)})
+        _batch_emit(job_id, {"status": "complete", "current": _batch["current"], "total": total})
 
 
 # ---------------------------------------------------------------------------
@@ -384,13 +472,13 @@ def caption_single():
 
 @caption_bp.post("/caption")
 def caption_batch():
-    """Batch-caption an entire folder via Server-Sent Events."""
+    """Start a background batch; work continues if the browser page closes."""
     data = request.get_json(silent=True) or {}
     folder_path = (data.get("folderPath") or "").strip("\"'")
-    prompt      = data.get("prompt", "Caption this image")
-    url         = _reachable_url(data.get("lmStudioUrl", "http://localhost:1234/v1"))
-    model       = data.get("model", "model-identifier")
-    mode        = data.get("mode")            # None = all, 'missing' = skip existing
+    prompt = data.get("prompt", "Caption this image")
+    url = _reachable_url(data.get("lmStudioUrl", "http://localhost:1234/v1"))
+    model = data.get("model", "model-identifier")
+    mode = data.get("mode")
     trigger_tag = (data.get("triggerTag") or "").strip()
 
     if not folder_path or not os.path.isdir(folder_path):
@@ -398,8 +486,8 @@ def caption_batch():
     if not _OPENAI_OK:
         return jsonify({"error": "openai package not installed"}), 500
 
-    client = OpenAI(api_key="not-needed", base_url=url)
     try:
+        client = OpenAI(api_key="not-needed", base_url=url)
         client.models.list(timeout=5.0)
     except Exception as e:
         return jsonify({"error": f"LLM instance not reachable: {e}"}), 500
@@ -411,63 +499,49 @@ def caption_batch():
     if not image_files:
         return jsonify({"error": "No images found in folder"}), 400
 
-    total = len(image_files)
+    with _batch_lock:
+        if _batch["state"] in ("running", "cancelling"):
+            return jsonify({"error": "A caption batch is already running", "jobId": _batch["job_id"]}), 409
+        _batch.update({
+            "job_id": _batch["job_id"] + 1, "state": "running", "folder_path": folder_path,
+            "current": 0, "total": len(image_files), "file": "", "event_id": 0,
+            "events": [], "cancel": False, "last_error": "",
+        })
+        job_id = _batch["job_id"]
+    worker = threading.Thread(
+        target=_run_caption_batch,
+        args=(job_id, image_files, folder_path, prompt, url, model, mode, trigger_tag),
+        daemon=True,
+    )
+    worker.start()
+    return jsonify({"ok": True, "jobId": job_id, "total": len(image_files), "state": "running"}), 202
 
-    def generate():
-        for idx, fname in enumerate(image_files, start=1):
-            img_path = os.path.join(folder_path, fname)
-            txt_path = os.path.join(folder_path, os.path.splitext(fname)[0] + ".txt")
-            mime, _ = mimetypes.guess_type(img_path)
-            mime = mime or "image/jpeg"
 
-            # ------ skip existing (mode=missing) ------
-            if mode == "missing" and os.path.isfile(txt_path):
-                try:
-                    with open(txt_path, "r", encoding="utf-8") as fh:
-                        existing = fh.read()
-                    with open(img_path, "rb") as fh:
-                        b64 = f"data:{mime};base64," + base64.b64encode(fh.read()).decode()
-                    sd = _read_sd_info(img_path)
-                    yield f"data: {json.dumps({'status':'success','current':idx,'total':total,'file':fname,'caption':existing,'sdPrompt':sd['sdPrompt'],'sdNegative':sd['sdNegative'],'sdSetting':sd['sdSetting'],'image':b64,'skipped':True,'hasWorkflow':_extract_comfy_workflow(img_path) is not None})}\n\n"
-                except Exception:
-                    pass
-                continue
+@caption_bp.get("/batch/status")
+def caption_batch_status():
+    """Return batch state and events after the supplied event id."""
+    try:
+        since = max(0, int(request.args.get("since", "0")))
+    except ValueError:
+        since = 0
+    with _batch_lock:
+        return jsonify({
+            "jobId": _batch["job_id"], "state": _batch["state"],
+            "folderPath": _batch["folder_path"], "current": _batch["current"],
+            "total": _batch["total"], "file": _batch["file"],
+            "error": _batch.get("last_error", ""),
+            "events": [event for event in _batch["events"] if event["eventId"] > since],
+        })
 
-            # ------ caption ------
-            try:
-                with open(img_path, "rb") as fh:
-                    b64 = f"data:{mime};base64," + base64.b64encode(fh.read()).decode()
-                yield f"data: {json.dumps({'status':'started','current':idx,'total':total,'file':fname,'image':b64})}\n\n"
 
-                llm_b64 = _process_image_for_llm(img_path)
-                resp = client.chat.completions.create(
-                    model=model,
-                    messages=[{
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": llm_b64}},
-                        ],
-                    }],
-                )
-                raw = resp.choices[0].message.content
-                caption = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-                if trigger_tag:
-                    caption = f"{trigger_tag}, {caption}"
-
-                caption, sd = _build_caption_with_sd(caption, img_path)
-
-                with open(txt_path, "w", encoding="utf-8") as fh:
-                    fh.write(caption)
-
-                yield f"data: {json.dumps({'status':'success','current':idx,'total':total,'file':fname,'caption':caption,'sdPrompt':sd['sdPrompt'],'sdNegative':sd['sdNegative'],'sdSetting':sd['sdSetting'],'image':b64,'hasWorkflow':_extract_comfy_workflow(img_path) is not None})}\n\n"
-
-            except Exception as e:
-                yield f"data: {json.dumps({'status':'error','file':fname,'error':str(e)})}\n\n"
-
-        yield f"data: {json.dumps({'status':'complete','total':total})}\n\n"
-
-    return Response(generate(), mimetype="text/event-stream")
+@caption_bp.post("/batch/stop")
+def stop_caption_batch():
+    with _batch_lock:
+        if _batch["state"] != "running":
+            return jsonify({"ok": True, "state": _batch["state"]})
+        _batch["cancel"] = True
+        _batch["state"] = "cancelling"
+        return jsonify({"ok": True, "state": "cancelling"})
 
 
 @caption_bp.get("/workflow")

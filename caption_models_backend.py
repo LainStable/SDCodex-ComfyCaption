@@ -343,8 +343,21 @@ def list_models():
         "models_dir": d,
         "options":    opts,
         "present":    _list_models(),
-        "settings":   load_settings(),
+        "settings":   {"repo": load_settings().get("repo", DEFAULT_REPO)},
     })
+
+
+@models_bp.get("/token-status")
+def token_status():
+    return jsonify(configured=bool(load_settings().get("hf_token")))
+
+
+@models_bp.post("/token")
+def save_token():
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    save_settings(hf_token=token)
+    return jsonify(ok=True, configured=bool(token))
 
 
 @models_bp.post("/save")
@@ -363,14 +376,10 @@ def download():
     data      = request.get_json(silent=True) or {}
     option    = data.get("option", "")
     repo      = (data.get("repo") or "").strip()
-    token     = (data.get("hf_token") or "").strip()
     saved     = load_settings()
     if repo and repo != saved.get("repo"):
         save_settings(repo=repo)
-    if token:
-        save_settings(hf_token=token)
-    else:
-        token = saved.get("hf_token", "")
+    token = saved.get("hf_token", "")
     ok, msg = start_download(repo or saved.get("repo", DEFAULT_REPO), token, option)
     return jsonify(ok=ok, message=msg)
 
