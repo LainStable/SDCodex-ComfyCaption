@@ -1,7 +1,7 @@
 {
   "id": "comfy-caption",
   "name": "caption",
-  "version": "2.4.5",
+  "version": "2.4.6",
   "description": "Auto-captioning with LLMs/JoyCaption and ComfyUI custom workflow nodes. Captioning GGUF models can be downloaded from HuggingFace via the Caption Models settings page.",
   "author": "DeeplabSystems",
   "repository": "https://github.com/LainStable/SDCodex-ComfyCaption",
@@ -17,10 +17,10 @@
   ],
   "volumes": [
     {
-      "env_var": "COMFYUI_CUSTOM_NODES",
-      "host_path": "./comfyui/custom_nodes",
-      "container_path": "/data/custom_nodes",
-      "description": "ComfyUI custom-addons folder (where comfyui-sdcodex nodes will be installed)"
+      "env_var": "COMFYUI_INSTALL_DIR",
+      "host_path": "./comfyui",
+      "container_path": "/data/comfyui",
+      "description": "ComfyUI installation folder. In Docker mode this folder must contain main.py so the Caption Models page can install nodes into custom_nodes."
     },
     {
       "env_var": "CAPTION_MODELS",

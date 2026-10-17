@@ -80,6 +80,50 @@ tailwind.config = {
     </div>
   </div>
 
+  <!-- ComfyUI node pack -->
+  <div class="rounded-lg border border-outline-variant/30 bg-surface-container p-4 flex flex-col gap-4">
+    <h2 style="font-family:Geist,sans-serif;font-size:14px;font-weight:600;" class="text-on-surface flex items-center gap-2">
+      <span class="material-symbols-outlined text-[16px] text-outline">extension</span>
+      ComfyUI Node Pack
+    </h2>
+    <p class="text-xs text-on-surface-variant">Choose your ComfyUI installation folder. The SDCodex nodes will be copied into its <code>custom_nodes/comfyui-sdcodex</code> folder. Restart ComfyUI after installing or updating.</p>
+    <div>
+      <label for="comfyui-dir" class="block text-xs text-on-surface-variant mb-1">ComfyUI installation directory</label>
+      <div class="flex gap-2">
+        <input id="comfyui-dir" type="text" placeholder="/path/to/ComfyUI"
+               class="min-w-0 flex-1 bg-surface-container-lowest border border-outline-variant/40 rounded px-3 py-1.5 text-sm text-on-surface font-mono focus:outline-none focus:border-badge-checkpoint"/>
+        <button id="btn-browse-comfyui" class="shrink-0 px-3 py-1.5 rounded bg-surface-container-high border border-outline-variant/40 hover:border-badge-checkpoint text-on-surface text-xs font-semibold">Browse</button>
+      </div>
+      <p class="text-xs text-outline mt-1">The folder must contain <code>main.py</code>. In Docker mode, this path must be mounted and visible to the SDCodex container.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="btn-set-comfyui-dir" class="px-4 py-1.5 rounded bg-surface-container-high border border-outline-variant/40 hover:border-badge-checkpoint text-on-surface text-xs font-semibold active:scale-[0.98] transition-all">
+        Set Directory
+      </button>
+      <button id="btn-install-nodes" disabled class="px-4 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold active:scale-[0.98] transition-all">
+        Install Nodes
+      </button>
+      <span id="nodes-status" role="status" class="text-xs text-on-surface-variant"></span>
+    </div>
+    <p id="nodes-location" class="text-xs text-outline font-mono break-all"></p>
+  </div>
+
+  <div id="comfyui-browse-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="bg-surface-container w-full max-w-lg mx-4 rounded-lg border border-outline-variant/30 shadow-2xl flex flex-col overflow-hidden" style="max-height:75vh;">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/20">
+        <span style="font-family:Geist,sans-serif;font-size:14px;font-weight:600;">Choose ComfyUI Folder</span>
+        <button id="comfyui-browse-close" class="text-outline hover:text-on-surface" aria-label="Close">×</button>
+      </div>
+      <div id="comfyui-browse-roots" class="flex flex-wrap gap-1 p-2 border-b border-outline-variant/20"></div>
+      <div id="comfyui-browse-cwd" class="px-3 py-2 font-mono text-xs text-outline border-b border-outline-variant/15 break-all"></div>
+      <div id="comfyui-browse-list" class="flex-1 min-h-24 overflow-y-auto divide-y divide-outline-variant/10"></div>
+      <div class="px-4 py-3 border-t border-outline-variant/20 flex justify-end gap-2">
+        <button id="comfyui-browse-cancel" class="px-3 py-1.5 rounded border border-outline-variant/40 text-on-surface-variant text-xs hover:border-status-alert hover:text-status-alert">Cancel</button>
+        <button id="comfyui-browse-select" class="px-3 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white text-xs font-semibold">Select Folder</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Models list -->
   <div class="rounded-lg border border-outline-variant/30 bg-surface-container p-4 flex flex-col gap-3">
     <div class="flex items-center justify-between">
@@ -114,6 +158,7 @@ tailwind.config = {
 
 <script>
 const MODELS_API = '/comfy-caption/models';
+const NODES_API = `${MODELS_API}/nodes`;
 let pollTimer = null;
 let data = { options:[], settings:{}, models_dir:'', present:{} };
 
@@ -178,6 +223,138 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       setTimeout(() => msg.classList.add('hidden'), 2000);
     }
   } catch(e) { alert('Save failed: ' + e.message); }
+});
+
+const comfyuiBrowseModal = document.getElementById('comfyui-browse-modal');
+const comfyuiBrowseCwd = document.getElementById('comfyui-browse-cwd');
+const comfyuiBrowseList = document.getElementById('comfyui-browse-list');
+const comfyuiBrowseRoots = document.getElementById('comfyui-browse-roots');
+let comfyuiBrowseCurrent = '';
+
+document.getElementById('btn-browse-comfyui').addEventListener('click', async () => {
+  comfyuiBrowseModal.classList.remove('hidden');
+  const inputPath = document.getElementById('comfyui-dir').value.trim();
+  await browseComfyuiFolders(inputPath || '/data/comfyui');
+  try {
+    const response = await fetch('/comfy-caption/api/browse-roots');
+    const result = await response.json();
+    comfyuiBrowseRoots.replaceChildren();
+    for (const root of (result.roots || [])) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = root;
+      button.className = 'px-2 py-1 rounded border border-outline-variant/30 text-[10px] text-outline hover:text-primary hover:border-badge-checkpoint';
+      button.addEventListener('click', () => browseComfyuiFolders(root));
+      comfyuiBrowseRoots.appendChild(button);
+    }
+  } catch (error) {
+    console.error('Could not load directory shortcuts:', error);
+  }
+});
+
+async function browseComfyuiFolders(path) {
+  try {
+    const response = await fetch(`/comfy-caption/api/browse-folders?path=${encodeURIComponent(path)}`);
+    const result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error || `Request failed (${response.status})`);
+    comfyuiBrowseCurrent = result.cwd;
+    comfyuiBrowseCwd.textContent = result.cwd;
+    comfyuiBrowseList.replaceChildren();
+    if (result.parent && result.parent !== result.cwd) {
+      const parent = document.createElement('button');
+      parent.type = 'button';
+      parent.textContent = 'Up: ..';
+      parent.className = 'block w-full px-3 py-2 text-left text-xs text-outline hover:bg-surface-container-high';
+      parent.addEventListener('click', () => browseComfyuiFolders(result.parent));
+      comfyuiBrowseList.appendChild(parent);
+    }
+    for (const dir of (result.dirs || [])) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `Folder: ${dir.name}`;
+      button.className = 'block w-full px-3 py-2 text-left text-xs text-on-surface-variant hover:bg-surface-container-high';
+      button.addEventListener('click', () => browseComfyuiFolders(dir.path));
+      comfyuiBrowseList.appendChild(button);
+    }
+    if (!result.dirs?.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No subfolders here.';
+      empty.className = 'px-3 py-4 text-xs text-outline';
+      comfyuiBrowseList.appendChild(empty);
+    }
+  } catch (error) {
+    comfyuiBrowseList.textContent = error.message;
+  }
+}
+
+function closeComfyuiBrowser() {
+  comfyuiBrowseModal.classList.add('hidden');
+}
+
+document.getElementById('comfyui-browse-close').addEventListener('click', closeComfyuiBrowser);
+document.getElementById('comfyui-browse-cancel').addEventListener('click', closeComfyuiBrowser);
+document.getElementById('comfyui-browse-select').addEventListener('click', () => {
+  document.getElementById('comfyui-dir').value = comfyuiBrowseCurrent;
+  closeComfyuiBrowser();
+});
+
+async function loadNodeConfig() {
+  const status = document.getElementById('nodes-status');
+  try {
+    const response = await fetch(NODES_API);
+    const config = await response.json();
+    if (!response.ok || !config.ok) throw new Error(config.error || `Request failed (${response.status})`);
+    document.getElementById('comfyui-dir').value = config.install_dir || '';
+    document.getElementById('btn-install-nodes').disabled = !config.valid;
+    document.getElementById('nodes-location').textContent = config.installed
+      ? `Node pack installed in ${config.custom_nodes_dir}`
+      : (config.valid ? `Ready to install into ${config.custom_nodes_dir}` : (config.install_dir ? 'The saved directory is unavailable or invalid.' : 'No ComfyUI directory configured.'));
+  } catch (error) {
+    status.textContent = error.message;
+    status.className = 'text-xs text-status-alert';
+    document.getElementById('btn-install-nodes').disabled = true;
+  }
+}
+
+document.getElementById('btn-set-comfyui-dir').addEventListener('click', async () => {
+  const status = document.getElementById('nodes-status');
+  status.textContent = 'Validating directory…';
+  status.className = 'text-xs text-on-surface-variant';
+  try {
+    const response = await fetch(`${NODES_API}/directory`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({install_dir: document.getElementById('comfyui-dir').value}),
+    });
+    const config = await response.json();
+    if (!response.ok || !config.ok) throw new Error(config.error || `Request failed (${response.status})`);
+    status.textContent = 'Directory saved.';
+    status.className = 'text-xs text-status-active';
+    await loadNodeConfig();
+  } catch (error) {
+    status.textContent = error.message;
+    status.className = 'text-xs text-status-alert';
+  }
+});
+
+document.getElementById('btn-install-nodes').addEventListener('click', async () => {
+  const button = document.getElementById('btn-install-nodes');
+  const status = document.getElementById('nodes-status');
+  button.disabled = true;
+  status.textContent = 'Installing nodes…';
+  status.className = 'text-xs text-on-surface-variant';
+  try {
+    const response = await fetch(`${NODES_API}/install`, {method: 'POST'});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || `Request failed (${response.status})`);
+    status.textContent = result.message;
+    status.className = 'text-xs text-status-active';
+    await loadNodeConfig();
+  } catch (error) {
+    status.textContent = error.message;
+    status.className = 'text-xs text-status-alert';
+    button.disabled = false;
+  }
 });
 
 // ─── Start download ───────────────────────────────────────────────────────────
@@ -261,6 +438,7 @@ function updateProgress(s) {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadData();
+loadNodeConfig();
 
 // Check if a download is already in progress
 (async () => {
