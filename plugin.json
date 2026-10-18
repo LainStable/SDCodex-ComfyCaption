@@ -1,7 +1,7 @@
 {
   "id": "comfy-caption",
   "name": "caption",
-  "version": "2.5.0",
+  "version": "2.5.2",
   "description": "Auto-captioning with LLMs/JoyCaption and ComfyUI custom workflow nodes. Captioning GGUF models can be downloaded from HuggingFace via the Caption Models settings page.",
   "author": "DeeplabSystems",
   "repository": "https://github.com/LainStable/SDCodex-ComfyCaption",
