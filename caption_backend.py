@@ -503,7 +503,7 @@ def _start_caption_batch(data):
         _batch.update({
             "job_id": _batch["job_id"] + 1, "state": "running", "folder_path": folder_path,
             "current": 0, "total": len(image_files), "file": "", "event_id": 0,
-            "events": [], "cancel": False, "last_error": "",
+            "events": [], "cancel": False, "last_error": "", "started_at": time.time(),
         })
         job_id = _batch["job_id"]
     worker = threading.Thread(
@@ -562,6 +562,24 @@ def caption_batch_status():
             "total": _batch["total"], "file": _batch["file"],
             "error": _batch.get("last_error", ""),
             "events": [event for event in _batch["events"] if event["eventId"] > since],
+        })
+
+
+@caption_bp.get("/task")
+def caption_task():
+    """Normalized progress for the core's floating task notification."""
+    with _batch_lock:
+        if _batch["state"] not in ("running", "cancelling"):
+            return jsonify({"active": False})
+        return jsonify({
+            "active": True,
+            "state": _batch["state"],
+            "label": "ComfyCaption",
+            "current": _batch["current"],
+            "total": _batch["total"],
+            "detail": _batch["file"],
+            "message": "Captioning images",
+            "started_at": _batch.get("started_at", 0),
         })
 
 

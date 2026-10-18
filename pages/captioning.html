@@ -94,6 +94,21 @@ tailwind.config = {
   #image-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); align-content: start; }
   .asset-thumbnail { aspect-ratio: 4 / 3; background: #080b12; }
   .asset-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+  /* Folder browser — same style and flow as the AI Renamer plugin: a dark
+     modal with a "use this folder" row, a parent row and subfolder rows. */
+  .folder-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5,8,13,0.73); }
+  .folder-modal.open { display: flex; }
+  .folder-modal-box { display: flex; flex-direction: column; width: min(520px, 95vw); max-height: 80vh; overflow: hidden; background: #171e2a; border: 1px solid #354054; border-radius: 8px; }
+  .folder-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #2b3444; }
+  .folder-modal-head strong { font-family: Geist, Inter, sans-serif; font-size: 15px; font-weight: 700; color: #dfe2ef; }
+  .folder-modal-head button { padding: 6px 10px; border: 1px solid #354054; border-radius: 5px; background: #202838; color: #dfe2ef; font-size: 12px; cursor: pointer; }
+  .folder-modal-head button:hover { border-color: #6672ee; background: #29334a; }
+  .folder-list { overflow: auto; padding: 8px; }
+  .folder-row { display: flex; align-items: center; gap: 8px; width: 100%; margin: 3px 0; padding: 8px 10px; text-align: left; border: 1px solid #2b3444; border-radius: 5px; background: #1b2230; color: #dfe2ef; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
+  .folder-row:hover { border-color: #6672ee; background: #29334a; }
+  .folder-row.current { color: #a5b4fc; border-color: #3d4763; }
+  .folder-error { padding: 12px 10px; color: #fda4af; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; line-height: 1.5; }
 </style>
 </head>
 <body class="bg-surface-container-lowest text-on-surface font-body-md antialiased flex min-h-screen flex-col overflow-y-auto">
@@ -103,7 +118,7 @@ tailwind.config = {
   <div class="flex items-center gap-3">
     <span class="material-symbols-outlined text-badge-lora text-[20px]">subtitles</span>
     <span class="font-headline-sm text-headline-sm font-bold tracking-tight">ComfyCaption</span>
-    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-badge-checkpoint/15 border border-badge-checkpoint/40 text-primary uppercase tracking-wider">v2.4.7</span>
+    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-badge-checkpoint/15 border border-badge-checkpoint/40 text-primary uppercase tracking-wider">v2.5.0</span>
     <div id="conn-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-active/10 border border-status-active/30 text-status-active font-code-sm text-code-sm">
       <span class="w-1.5 h-1.5 rounded-full bg-status-active animate-ping"></span>
       <span id="conn-text">Connected</span>
@@ -303,21 +318,14 @@ tailwind.config = {
   </aside>
 </main>
 
-<!-- ===== BROWSE MODAL ===== -->
-<div id="browse-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-  <div class="bg-surface-container w-96 rounded-xl border border-outline-variant/30 shadow-2xl flex flex-col overflow-hidden" style="max-height:70vh;">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/20">
-      <span class="font-headline-sm text-headline-sm font-bold">Browse Folders</span>
-      <button id="browse-close" class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant">
-        <span class="material-symbols-outlined text-[18px]">close</span>
-      </button>
+<!-- ===== FOLDER BROWSER (mirrors the AI Renamer plugin modal) ===== -->
+<div id="folder-modal" class="folder-modal" role="dialog" aria-modal="true" aria-labelledby="folder-title">
+  <div class="folder-modal-box">
+    <div class="folder-modal-head">
+      <strong id="folder-title">Choose folder</strong>
+      <button id="close-folder" type="button">Close</button>
     </div>
-    <div id="browse-cwd" class="px-4 py-2 font-code-sm text-code-sm text-outline border-b border-outline-variant/15 truncate"></div>
-    <div id="browse-list" class="flex-1 overflow-y-auto divide-y divide-outline-variant/10"></div>
-    <div class="px-4 py-3 border-t border-outline-variant/20 flex justify-end gap-2">
-      <button id="browse-cancel" class="px-3 py-1.5 rounded border border-outline-variant/40 text-on-surface-variant font-label-md text-label-md hover:border-status-alert hover:text-status-alert transition-all">Cancel</button>
-      <button id="browse-select" class="px-3 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white font-label-md text-label-md active:scale-[0.98] transition-all">Select</button>
-    </div>
+    <div id="folder-list" class="folder-list"></div>
   </div>
 </div>
 
@@ -789,80 +797,63 @@ nextPage.addEventListener('click', () => { if (page < totalPages) { page++; fetc
 // ─── Model select → enable batch ─────────────────────────────────────────────
 modelSelect.addEventListener('change', enableBatch);
 
-// ─── Browse modal ─────────────────────────────────────────────────────────────
-const browseModal = document.getElementById('browse-modal');
-const browseCwd   = document.getElementById('browse-cwd');
-const browseList  = document.getElementById('browse-list');
-let browseCurrent = '';
+// ─── Folder browser (AI Renamer style: use-this/parent/subfolder rows) ────────
+const folderModal = document.getElementById('folder-modal');
+const folderList  = document.getElementById('folder-list');
 
-document.getElementById('btn-browse').addEventListener('click', openBrowse);
-document.getElementById('browse-close').addEventListener('click', () => browseModal.classList.add('hidden'));
-document.getElementById('browse-cancel').addEventListener('click', () => browseModal.classList.add('hidden'));
-document.getElementById('browse-select').addEventListener('click', () => {
-  folderInput.value = browseCurrent;
-  browseModal.classList.add('hidden');
-  loadFolder(browseCurrent);
+document.getElementById('btn-browse').addEventListener('click', () => {
+  openFolders().catch(error => showFolderError(error.message));
 });
+document.getElementById('close-folder').addEventListener('click', () => folderModal.classList.remove('open'));
+folderModal.addEventListener('click', (event) => { if (event.target === folderModal) folderModal.classList.remove('open'); });
 
-async function openBrowse(startPath) {
-  browseModal.classList.remove('hidden');
-  await browseTo(typeof startPath === 'string' ? startPath : (folderInput.value || '/data'));
+function showFolderError(message) {
+  folderList.replaceChildren();
+  const row = document.createElement('div');
+  row.className = 'folder-error';
+  row.textContent = message;
+  folderList.appendChild(row);
+  folderModal.classList.add('open');
 }
 
-async function browseTo(path) {
+async function openFolders(path = folderInput.value.trim()) {
+  let result;
   try {
-    const r = await fetch(`${API}/browse-folders?path=${encodeURIComponent(path)}`);
-    const d = await r.json();
-    if (d.error) { browseList.innerHTML = `<div class="p-3 text-status-alert font-code-sm text-code-sm">${d.error}</div>`; return; }
-    browseCurrent = d.cwd;
-    browseCwd.textContent = d.cwd;
-    browseList.innerHTML = '';
-    // Parent
-    if (d.parent && d.parent !== d.cwd) {
-      const el = document.createElement('div');
-      el.className = 'flex items-center gap-2 px-3 py-2 hover:bg-surface-container-high cursor-pointer text-on-surface-variant font-code-sm text-code-sm';
-      el.innerHTML = '<span class="material-symbols-outlined text-[14px]">arrow_upward</span> ..';
-      el.addEventListener('click', () => browseTo(d.parent));
-      browseList.appendChild(el);
-    }
-    // Roots shortcut
-    try {
-      const rr = await fetch(`${API}/browse-roots`);
-      const rd = await rr.json();
-      if (rd.roots && rd.roots.length) {
-        const header = document.createElement('div');
-        header.className = 'px-3 py-1 font-label-sm text-label-sm text-outline uppercase border-b border-outline-variant/15';
-        header.textContent = 'Quick Roots';
-        browseList.insertBefore(header, browseList.firstChild);
-        rd.roots.slice().reverse().forEach(r => {
-          const el = document.createElement('div');
-          el.className = 'flex items-center gap-2 px-3 py-1.5 hover:bg-surface-container-high cursor-pointer text-outline font-code-sm text-[10px] border-b border-outline-variant/10';
-          el.innerHTML = `<span class="material-symbols-outlined text-[12px]">hard_drive</span>${r}`;
-          el.addEventListener('click', () => browseTo(r));
-          browseList.insertBefore(el, browseList.children[1] || null);
-        });
-        const divider = document.createElement('div');
-        divider.className = 'px-3 py-1 font-label-sm text-label-sm text-outline uppercase border-b border-outline-variant/15 mt-1';
-        divider.textContent = 'Subdirectories';
-        browseList.appendChild(divider);
-      }
-    } catch(e) {}
-
-    d.dirs.forEach(dir => {
-      const el = document.createElement('div');
-      el.className = 'flex items-center gap-2 px-3 py-2 hover:bg-surface-container-high cursor-pointer text-on-surface font-code-sm text-code-sm';
-      el.innerHTML = `<span class="material-symbols-outlined text-[14px] text-outline">folder</span>${dir.name}`;
-      el.addEventListener('click', () => browseTo(dir.path));
-      browseList.appendChild(el);
-    });
-
-    if (d.dirs.length === 0) {
-      const el = document.createElement('div');
-      el.className = 'px-3 py-4 text-outline font-code-sm text-code-sm text-center';
-      el.textContent = 'No subdirectories';
-      browseList.appendChild(el);
-    }
-  } catch(e) { browseList.innerHTML = `<div class="p-3 text-status-alert">${e.message}</div>`; }
+    const response = await fetch(`${API}/browse-folders?path=${encodeURIComponent(path || '/data')}`);
+    result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error || `Request failed (${response.status})`);
+  } catch (error) {
+    showFolderError(error.message);
+    return;
+  }
+  folderList.replaceChildren();
+  const choose = document.createElement('button');
+  choose.type = 'button';
+  choose.className = 'folder-row current';
+  choose.textContent = `✓ Use this folder · ${result.cwd}`;
+  choose.addEventListener('click', () => {
+    folderModal.classList.remove('open');
+    folderInput.value = result.cwd;
+    loadFolder(result.cwd).catch(error => showFolderError(error.message));
+  });
+  folderList.appendChild(choose);
+  if (result.parent && result.parent !== result.cwd) {
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'folder-row';
+    up.textContent = '↑  Parent folder';
+    up.addEventListener('click', () => openFolders(result.parent).catch(error => showFolderError(error.message)));
+    folderList.appendChild(up);
+  }
+  for (const dir of result.dirs || []) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'folder-row';
+    button.textContent = `▸  ${dir.name}`;
+    button.addEventListener('click', () => openFolders(dir.path).catch(error => showFolderError(error.message)));
+    folderList.appendChild(button);
+  }
+  folderModal.classList.add('open');
 }
 
 async function restorePageState() {

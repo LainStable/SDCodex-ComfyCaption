@@ -1,7 +1,7 @@
 {
   "id": "comfy-caption",
   "name": "caption",
-  "version": "2.4.8",
+  "version": "2.5.0",
   "description": "Auto-captioning with LLMs/JoyCaption and ComfyUI custom workflow nodes. Captioning GGUF models can be downloaded from HuggingFace via the Caption Models settings page.",
   "author": "DeeplabSystems",
   "repository": "https://github.com/LainStable/SDCodex-ComfyCaption",
@@ -15,6 +15,11 @@
       "icon": "settings"
     }
   ],
+  "task_status": {
+    "label": "ComfyCaption",
+    "path": "/comfy-caption/api/task",
+    "page": "captioning"
+  },
   "volumes": [
     {
       "env_var": "COMFYUI_INSTALL_DIR",
@@ -29,5 +34,20 @@
       "description": "Directory for captioning models (GGUF + mmproj). Point this at your LM Studio models folder to reuse existing GGUFs \u2014 files downloaded from the Caption Models page land here too"
     }
   ],
-  "icon": "subtitles"
+  "icon": "subtitles",
+  "assistant_actions": [
+    {
+      "name": "batch_status",
+      "description": "Caption batch state, progress and recent events.",
+      "method": "GET",
+      "path": "/comfy-caption/api/batch/status"
+    },
+    {
+      "name": "stop_batch",
+      "description": "Stop the running caption batch.",
+      "method": "POST",
+      "path": "/comfy-caption/api/batch/stop",
+      "confirm": true
+    }
+  ]
 }
