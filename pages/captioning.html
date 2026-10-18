@@ -390,24 +390,59 @@ triggerTag.addEventListener('change', () => localStorage.setItem('captionTrigger
 folderInput.addEventListener('change', () => localStorage.setItem('captioningFolderPath', folderInput.value.trim()));
 modelSelect.addEventListener('change', () => localStorage.setItem('captionModel', modelSelect.value));
 
-function loadPromptPresets() {
+function readPresets() {
   let presets = [];
-  try { const value = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); if (Array.isArray(value)) presets = value.filter(x => typeof x === 'string' && x.trim()); } catch (_) {}
-  promptSelect.innerHTML = '<option value="">Choose a saved prompt</option>' + presets.map((value, index) => `<option value="${index}">${value.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</option>`).join('');
-  promptSelect.onchange = () => { if (promptSelect.value !== '') promptInput.value = presets[Number(promptSelect.value)] || ''; };
+  try { const value = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); if (Array.isArray(value)) presets = value; } catch (_) {}
+  // Migrate legacy plain-string entries to named {name, text} objects.
+  let migrated = false;
+  presets = presets.map((entry) => {
+    if (typeof entry === 'string') {
+      migrated = true;
+      const text = entry.trim();
+      return { name: text.slice(0, 60), text };
+    }
+    if (entry && typeof entry.text === 'string' && entry.text.trim()) {
+      return { name: String(entry.name || '').trim() || entry.text.trim().slice(0, 60), text: entry.text };
+    }
+    migrated = true;
+    return null;
+  }).filter(Boolean);
+  if (migrated) { try { localStorage.setItem('savedCaptionPrompts', JSON.stringify(presets)); } catch (_) {} }
+  return presets;
+}
+function escHtml(value) {
+  return String(value ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function loadPromptPresets() {
+  const presets = readPresets();
+  promptSelect.innerHTML = '<option value="">Choose a saved prompt</option>' + presets.map((preset, index) => `<option value="${index}">${escHtml(preset.name)}</option>`).join('');
+  promptSelect.onchange = () => {
+    if (promptSelect.value !== '') {
+      const preset = presets[Number(promptSelect.value)];
+      if (preset) {
+        promptInput.value = preset.text;
+        try { localStorage.setItem('captionPrompt', preset.text); } catch (_) {}
+      }
+    }
+  };
 }
 loadPromptPresets();
 document.getElementById('save-prompt-btn').addEventListener('click', () => {
   const value = promptInput.value.trim(); if (!value) return;
-  let presets = []; try { presets = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); } catch (_) {}
-  if (!Array.isArray(presets)) presets = [];
-  if (!presets.includes(value)) presets.push(value);
+  const fallback = value.length > 60 ? value.slice(0, 60) + '…' : value;
+  const name = window.prompt('Name this system prompt preset:', fallback);
+  if (name === null) return; // cancelled
+  const label = name.trim() || fallback;
+  const presets = readPresets();
+  const existing = presets.findIndex((p) => p.name.toLowerCase() === label.toLowerCase());
+  if (existing >= 0) presets[existing] = { name: label, text: value };
+  else presets.push({ name: label, text: value });
   localStorage.setItem('savedCaptionPrompts', JSON.stringify(presets)); loadPromptPresets();
+  promptSelect.value = String(existing >= 0 ? existing : presets.length - 1);
 });
 document.getElementById('delete-prompt-btn').addEventListener('click', () => {
   if (promptSelect.value === '') return;
-  let presets = []; try { presets = JSON.parse(localStorage.getItem('savedCaptionPrompts') || '[]'); } catch (_) {}
-  if (!Array.isArray(presets)) return;
+  const presets = readPresets();
   presets.splice(Number(promptSelect.value), 1); localStorage.setItem('savedCaptionPrompts', JSON.stringify(presets)); loadPromptPresets();
 });
 
