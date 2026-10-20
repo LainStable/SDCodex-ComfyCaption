@@ -54,6 +54,24 @@ except ImportError:
 
 caption_bp = Blueprint("caption_bp", __name__, url_prefix="/comfy-caption/api")
 
+
+def _core_session_missing() -> bool:
+    try:
+        from sdcodex import auth as core_auth
+    except Exception:
+        return False  # standalone deployment
+    try:
+        return core_auth.current_user() is None
+    except Exception:
+        return True
+
+
+@caption_bp.before_request
+def _caption_auth_guard():
+    if _core_session_missing():
+        return jsonify({"error": "unauthorized"}), 401
+    return None
+
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 _batch_lock = threading.RLock()
 _batch = {

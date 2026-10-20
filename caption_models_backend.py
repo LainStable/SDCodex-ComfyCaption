@@ -320,6 +320,24 @@ def _list_models():
 models_bp = Blueprint("caption_models_bp", __name__, url_prefix="/comfy-caption/models")
 
 
+def _core_session_missing() -> bool:
+    try:
+        from sdcodex import auth as core_auth
+    except Exception:
+        return False  # standalone deployment
+    try:
+        return core_auth.current_user() is None
+    except Exception:
+        return True
+
+
+@models_bp.before_request
+def _models_auth_guard():
+    if _core_session_missing():
+        return jsonify({"error": "unauthorized"}), 401
+    return None
+
+
 @models_bp.get("/status")
 def status_route():
     return jsonify(_job_status())
