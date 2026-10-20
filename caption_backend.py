@@ -68,6 +68,8 @@ def _core_session_missing() -> bool:
 
 @caption_bp.before_request
 def _caption_auth_guard():
+    if request.path.endswith("/status"):
+        return None
     if _core_session_missing():
         return jsonify({"error": "unauthorized"}), 401
     return None
