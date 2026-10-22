@@ -95,19 +95,38 @@ tailwind.config = {
   .asset-thumbnail { aspect-ratio: 4 / 3; background: #080b12; }
   .asset-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
-  /* Folder browser — same style and flow as the AI Renamer plugin: a dark
-     modal with a "use this folder" row, a parent row and subfolder rows. */
+  /* Folder browser — gallery-style: quick-root chips, a clickable breadcrumb
+     path bar, a filter box and keyboard-navigable folder rows. */
   .folder-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5,8,13,0.73); }
   .folder-modal.open { display: flex; }
-  .folder-modal-box { display: flex; flex-direction: column; width: min(520px, 95vw); max-height: 80vh; overflow: hidden; background: #171e2a; border: 1px solid #354054; border-radius: 8px; }
+  .folder-modal-box { display: flex; flex-direction: column; width: min(620px, 95vw); max-height: 80vh; overflow: hidden; background: #171e2a; border: 1px solid #354054; border-radius: 8px; }
   .folder-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #2b3444; }
   .folder-modal-head strong { font-family: Geist, Inter, sans-serif; font-size: 15px; font-weight: 700; color: #dfe2ef; }
-  .folder-modal-head button { padding: 6px 10px; border: 1px solid #354054; border-radius: 5px; background: #202838; color: #dfe2ef; font-size: 12px; cursor: pointer; }
-  .folder-modal-head button:hover { border-color: #6672ee; background: #29334a; }
-  .folder-list { overflow: auto; padding: 8px; }
-  .folder-row { display: flex; align-items: center; gap: 8px; width: 100%; margin: 3px 0; padding: 8px 10px; text-align: left; border: 1px solid #2b3444; border-radius: 5px; background: #1b2230; color: #dfe2ef; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
-  .folder-row:hover { border-color: #6672ee; background: #29334a; }
-  .folder-row.current { color: #a5b4fc; border-color: #3d4763; }
+  .folder-modal-head button, .folder-foot button { padding: 6px 10px; border: 1px solid #354054; border-radius: 5px; background: #202838; color: #dfe2ef; font-size: 12px; cursor: pointer; }
+  .folder-modal-head button:hover, .folder-foot button:hover { border-color: #6672ee; background: #29334a; }
+  .folder-roots { display: flex; flex-wrap: wrap; gap: 5px; padding: 9px 14px; border-bottom: 1px solid #2b3444; }
+  .folder-roots[hidden] { display: none; }
+  .folder-roots .root-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; border: 1px solid #354054; border-radius: 4px; background: rgba(255,255,255,0.04); color: #aab4c6; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; cursor: pointer; }
+  .folder-roots .root-chip:hover { border-color: #6672ee; background: rgba(99,102,241,0.18); color: #fff; }
+  .folder-path-bar { display: flex; align-items: center; gap: 2px; overflow-x: auto; padding: 7px 14px; border-bottom: 1px solid #2b3444; scrollbar-width: thin; }
+  .folder-path-bar[hidden] { display: none; }
+  .crumb { padding: 3px 6px; border: 0; border-radius: 5px; background: transparent; color: #a5b4fc; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  .crumb:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .crumb.current { color: #fff; }
+  .crumb-sep { padding: 0 1px; color: #64748b; font-size: 13px; font-weight: 700; }
+  .folder-tools { display: flex; align-items: center; gap: 10px; padding: 10px 14px 2px; }
+  .folder-tools input { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid #354054; border-radius: 5px; background: #0f1622; color: #dfe2ef; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; outline: none; }
+  .folder-tools input:focus { border-color: #6672ee; }
+  .folder-count { color: #8a94a6; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; white-space: nowrap; }
+  .folder-list { overflow: auto; padding: 6px 8px 10px; }
+  .folder-row { display: flex; align-items: center; gap: 9px; width: 100%; margin: 2px 0; padding: 8px 10px; text-align: left; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #c7ccd8; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
+  .folder-row:hover, .folder-row.active { border-color: rgba(99,102,241,0.45); background: rgba(99,102,241,0.14); color: #fff; }
+  .folder-row svg { flex: 0 0 auto; color: #8a94a6; }
+  .folder-row:hover svg, .folder-row.active svg { color: #a5b4fc; }
+  .folder-row.choose { margin-bottom: 6px; border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.16); color: #e0e7ff; font-weight: 600; }
+  .folder-row.up { color: #8a94a6; }
+  .folder-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid #2b3444; }
+  .folder-hint { color: #8a94a6; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; }
   .folder-error { padding: 12px 10px; color: #fda4af; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; line-height: 1.5; }
 </style>
 </head>
@@ -318,14 +337,24 @@ tailwind.config = {
   </aside>
 </main>
 
-<!-- ===== FOLDER BROWSER (mirrors the AI Renamer plugin modal) ===== -->
+<!-- ===== FOLDER BROWSER (gallery-style browser, shared with AI Renamer) ===== -->
 <div id="folder-modal" class="folder-modal" role="dialog" aria-modal="true" aria-labelledby="folder-title">
   <div class="folder-modal-box">
     <div class="folder-modal-head">
-      <strong id="folder-title">Choose folder</strong>
+      <strong id="folder-title">Browse folders</strong>
       <button id="close-folder" type="button">Close</button>
     </div>
-    <div id="folder-list" class="folder-list"></div>
+    <div id="folder-roots" class="folder-roots" hidden></div>
+    <div id="folder-path-bar" class="folder-path-bar" aria-label="Folder path"></div>
+    <div class="folder-tools">
+      <input id="folder-filter" type="search" placeholder="Filter folders…" autocomplete="off" aria-label="Filter folders"/>
+      <span id="folder-count" class="folder-count">0 folders</span>
+    </div>
+    <div id="folder-list" class="folder-list" role="listbox" aria-label="Folders"></div>
+    <div class="folder-foot">
+      <span class="folder-hint">↑↓ move · Enter open · Esc close</span>
+      <button id="cancel-folder" type="button">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -832,18 +861,156 @@ nextPage.addEventListener('click', () => { if (page < totalPages) { page++; fetc
 // ─── Model select → enable batch ─────────────────────────────────────────────
 modelSelect.addEventListener('change', enableBatch);
 
-// ─── Folder browser (AI Renamer style: use-this/parent/subfolder rows) ────────
+// ─── Folder browser (gallery-style: roots, breadcrumb, filter, keyboard) ──────
 const folderModal = document.getElementById('folder-modal');
 const folderList  = document.getElementById('folder-list');
+const folderRoots = document.getElementById('folder-roots');
+const folderPathBar = document.getElementById('folder-path-bar');
+const folderFilter = document.getElementById('folder-filter');
+const folderCount  = document.getElementById('folder-count');
+const browser = { cwd: '', parent: '', dirs: [], roots: [], active: 0 };
+let browserRootsLoaded = false;
+const FOLDER_ICONS = {
+  folder: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2h7A1.5 1.5 0 0 1 19 9.5v7A1.5 1.5 0 0 1 17.5 18h-13A1.5 1.5 0 0 1 3 16.5z"/></svg>',
+  up: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>',
+  choose: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>',
+};
 
 document.getElementById('btn-browse').addEventListener('click', () => {
   openFolders().catch(error => showFolderError(error.message));
 });
 document.getElementById('close-folder').addEventListener('click', () => folderModal.classList.remove('open'));
+document.getElementById('cancel-folder').addEventListener('click', () => folderModal.classList.remove('open'));
 folderModal.addEventListener('click', (event) => { if (event.target === folderModal) folderModal.classList.remove('open'); });
+folderModal.addEventListener('keydown', browserKeydown);
+folderFilter.addEventListener('input', () => {
+  browser.active = 0;
+  renderBrowserRows();
+});
+
+function browserRows() {
+  const query = folderFilter.value.trim().toLowerCase();
+  const rows = [{ kind: 'choose', name: `Use this folder · ${browser.cwd || '/data'}`, icon: FOLDER_ICONS.choose }];
+  if (browser.parent && browser.parent !== browser.cwd) {
+    rows.push({ kind: 'up', name: 'Parent folder', path: browser.parent, icon: FOLDER_ICONS.up });
+  }
+  for (const dir of browser.dirs) {
+    if (query && !dir.name.toLowerCase().includes(query)) continue;
+    rows.push({ kind: 'dir', name: dir.name, path: dir.path, icon: FOLDER_ICONS.folder });
+  }
+  return rows;
+}
+
+function renderBrowserRoots() {
+  folderRoots.replaceChildren();
+  for (const root of browser.roots) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'root-chip';
+    chip.textContent = root;
+    chip.title = root;
+    chip.addEventListener('click', () => openFolders(root).catch(error => showFolderError(error.message)));
+    folderRoots.appendChild(chip);
+  }
+  folderRoots.hidden = !browser.roots.length;
+}
+
+async function loadBrowserRoots() {
+  if (browserRootsLoaded) return;
+  browserRootsLoaded = true;
+  try {
+    const response = await fetch(`${API}/browse-roots`);
+    const result = await response.json();
+    browser.roots = result.roots || [];
+    renderBrowserRoots();
+  } catch (_) {
+    browserRootsLoaded = false;
+  }
+}
+
+function renderBrowserPath() {
+  folderPathBar.replaceChildren();
+  const parts = browser.cwd.split('/').filter(Boolean);
+  const root = document.createElement('button');
+  root.type = 'button';
+  root.className = `crumb${parts.length ? '' : ' current'}`;
+  root.textContent = '/';
+  root.title = 'Root';
+  root.addEventListener('click', () => openFolders('/').catch(error => showFolderError(error.message)));
+  folderPathBar.appendChild(root);
+  let running = '';
+  parts.forEach((part) => {
+    running += `/${part}`;
+    const target = running;
+    const separator = document.createElement('span');
+    separator.className = 'crumb-sep';
+    separator.textContent = '›';
+    separator.setAttribute('aria-hidden', 'true');
+    const crumb = document.createElement('button');
+    crumb.type = 'button';
+    crumb.className = `crumb${target === browser.cwd ? ' current' : ''}`;
+    crumb.textContent = part;
+    crumb.addEventListener('click', () => openFolders(target).catch(error => showFolderError(error.message)));
+    folderPathBar.append(separator, crumb);
+  });
+  folderPathBar.scrollLeft = folderPathBar.scrollWidth;
+}
+
+function renderBrowserRows() {
+  const rows = browserRows();
+  if (browser.active >= rows.length) browser.active = 0;
+  folderList.replaceChildren();
+  rows.forEach((row, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `folder-row ${row.kind}${index === browser.active ? ' active' : ''}`;
+    button.innerHTML = row.icon;
+    button.append(document.createTextNode(row.name));
+    button.addEventListener('click', () => activateBrowserRow(row));
+    folderList.appendChild(button);
+  });
+  const folders = rows.filter((row) => row.kind === 'dir').length;
+  folderCount.textContent = `${folders} folder${folders === 1 ? '' : 's'}`;
+  const active = folderList.querySelector('.folder-row.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+function activateBrowserRow(row) {
+  if (row.kind === 'choose') { selectBrowserFolder(); return; }
+  openFolders(row.path).catch(error => showFolderError(error.message));
+}
+
+function selectBrowserFolder() {
+  folderModal.classList.remove('open');
+  folderInput.value = browser.cwd;
+  localStorage.setItem('captioningFolderPath', browser.cwd);
+  loadFolder(browser.cwd).catch(error => showFolderError(error.message));
+}
+
+function browserKeydown(event) {
+  if (event.key === 'Escape') { folderModal.classList.remove('open'); return; }
+  const rows = browserRows();
+  if (!rows.length) return;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    browser.active = (browser.active + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+    renderBrowserRows();
+  } else if (event.key === 'Enter') {
+    // A focused folder row fires its own click on Enter; only the filter box
+    // (and the dialog itself) needs row activation here.
+    if (event.target instanceof Element && event.target.closest('.folder-row')) return;
+    const row = rows[browser.active];
+    if (!row) return;
+    event.preventDefault();
+    activateBrowserRow(row);
+  }
+}
 
 function showFolderError(message) {
+  folderRoots.hidden = true;
+  folderPathBar.replaceChildren();
   folderList.replaceChildren();
+  folderCount.textContent = '0 folders';
   const row = document.createElement('div');
   row.className = 'folder-error';
   row.textContent = message;
@@ -861,34 +1028,16 @@ async function openFolders(path = folderInput.value.trim()) {
     showFolderError(error.message);
     return;
   }
-  folderList.replaceChildren();
-  const choose = document.createElement('button');
-  choose.type = 'button';
-  choose.className = 'folder-row current';
-  choose.textContent = `✓ Use this folder · ${result.cwd}`;
-  choose.addEventListener('click', () => {
-    folderModal.classList.remove('open');
-    folderInput.value = result.cwd;
-    loadFolder(result.cwd).catch(error => showFolderError(error.message));
-  });
-  folderList.appendChild(choose);
-  if (result.parent && result.parent !== result.cwd) {
-    const up = document.createElement('button');
-    up.type = 'button';
-    up.className = 'folder-row';
-    up.textContent = '↑  Parent folder';
-    up.addEventListener('click', () => openFolders(result.parent).catch(error => showFolderError(error.message)));
-    folderList.appendChild(up);
-  }
-  for (const dir of result.dirs || []) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'folder-row';
-    button.textContent = `▸  ${dir.name}`;
-    button.addEventListener('click', () => openFolders(dir.path).catch(error => showFolderError(error.message)));
-    folderList.appendChild(button);
-  }
+  browser.cwd = result.cwd;
+  browser.parent = result.parent || '';
+  browser.dirs = result.dirs || [];
+  browser.active = 0;
+  folderFilter.value = '';
+  renderBrowserPath();
+  renderBrowserRows();
+  loadBrowserRoots();
   folderModal.classList.add('open');
+  folderFilter.focus();
 }
 
 async function restorePageState() {
