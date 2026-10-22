@@ -73,7 +73,7 @@ tailwind.config = {
       </div>
     </div>
     <div class="flex items-center gap-2">
-      <button id="btn-save" class="px-4 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white text-xs font-semibold active:scale-[0.98] transition-all">
+      <button id="btn-save" class="sd-btn sd-btn-primary">
         Save Settings
       </button>
       <span id="save-msg" class="hidden text-xs text-status-active">✓ Saved</span>
@@ -92,15 +92,15 @@ tailwind.config = {
       <div class="flex gap-2">
         <input id="comfyui-dir" type="text" placeholder="/path/to/ComfyUI"
                class="min-w-0 flex-1 bg-surface-container-lowest border border-outline-variant/40 rounded px-3 py-1.5 text-sm text-on-surface font-mono focus:outline-none focus:border-badge-checkpoint"/>
-        <button id="btn-browse-comfyui" class="shrink-0 px-3 py-1.5 rounded bg-surface-container-high border border-outline-variant/40 hover:border-badge-checkpoint text-on-surface text-xs font-semibold">Browse</button>
+        <button id="btn-browse-comfyui" class="sd-btn shrink-0">Browse</button>
       </div>
       <p class="text-xs text-outline mt-1">The folder must contain <code>main.py</code>. In Docker mode, this path must be mounted and visible to the SDCodex container.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button id="btn-set-comfyui-dir" class="px-4 py-1.5 rounded bg-surface-container-high border border-outline-variant/40 hover:border-badge-checkpoint text-on-surface text-xs font-semibold active:scale-[0.98] transition-all">
+      <button id="btn-set-comfyui-dir" class="sd-btn">
         Set Directory
       </button>
-      <button id="btn-install-nodes" disabled class="px-4 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold active:scale-[0.98] transition-all">
+      <button id="btn-install-nodes" disabled class="sd-btn sd-btn-primary">
         Install Nodes
       </button>
       <span id="nodes-status" role="status" class="text-xs text-on-surface-variant"></span>
@@ -112,14 +112,14 @@ tailwind.config = {
     <div class="bg-surface-container w-full max-w-lg mx-4 rounded-lg border border-outline-variant/30 shadow-2xl flex flex-col overflow-hidden" style="max-height:75vh;">
       <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/20">
         <span style="font-family:Geist,sans-serif;font-size:14px;font-weight:600;">Choose ComfyUI Folder</span>
-        <button id="comfyui-browse-close" class="text-outline hover:text-on-surface" aria-label="Close">×</button>
+        <button id="comfyui-browse-close" class="sd-btn sd-btn-icon" aria-label="Close">×</button>
       </div>
       <div id="comfyui-browse-roots" class="flex flex-wrap gap-1 p-2 border-b border-outline-variant/20"></div>
       <div id="comfyui-browse-cwd" class="px-3 py-2 font-mono text-xs text-outline border-b border-outline-variant/15 break-all"></div>
       <div id="comfyui-browse-list" class="flex-1 min-h-24 overflow-y-auto divide-y divide-outline-variant/10"></div>
       <div class="px-4 py-3 border-t border-outline-variant/20 flex justify-end gap-2">
-        <button id="comfyui-browse-cancel" class="px-3 py-1.5 rounded border border-outline-variant/40 text-on-surface-variant text-xs hover:border-status-alert hover:text-status-alert">Cancel</button>
-        <button id="comfyui-browse-select" class="px-3 py-1.5 rounded bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white text-xs font-semibold">Select Folder</button>
+        <button id="comfyui-browse-cancel" class="sd-btn">Cancel</button>
+        <button id="comfyui-browse-select" class="sd-btn sd-btn-primary">Select Folder</button>
       </div>
     </div>
   </div>
@@ -140,7 +140,7 @@ tailwind.config = {
   <div id="dl-progress" class="hidden rounded-lg border border-outline-variant/30 bg-surface-container p-4 flex flex-col gap-3">
     <div class="flex items-center justify-between">
       <span id="dl-file" class="text-xs font-mono text-primary truncate"></span>
-      <button id="btn-stop" class="px-2.5 py-1 rounded bg-status-alert/20 border border-status-alert/40 text-status-alert text-xs font-semibold hover:bg-status-alert/30 active:scale-[0.98] transition-all">
+      <button id="btn-stop" class="sd-btn sd-btn-danger">
         Stop
       </button>
     </div>
@@ -198,7 +198,7 @@ function renderOptions() {
         <div class="font-mono text-xs text-on-surface-variant truncate">${opt.gguf}</div>
         <div class="font-mono text-xs text-on-surface-variant/60 truncate">+ ${opt.mmproj}</div>
       </div>
-      <button data-key="${opt.key}" class="btn-download shrink-0 ml-3 px-3 py-1.5 rounded ${bothDone ? 'bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:border-badge-checkpoint hover:text-primary' : 'bg-badge-checkpoint hover:bg-badge-checkpoint/80 text-white shadow-[0_0_8px_rgba(99,102,241,0.3)]'} text-xs font-semibold active:scale-[0.98] transition-all">
+      <button data-key="${opt.key}" class="btn-download shrink-0 ml-3 ${bothDone ? 'sd-btn' : 'sd-btn sd-btn-primary'}">
         ${bothDone ? 'Re-download' : 'Download'}
       </button>`;
     list.appendChild(row);
