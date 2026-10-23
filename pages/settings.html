@@ -212,7 +212,7 @@ function renderOptions() {
         <div class="flex items-center gap-2">
           <span style="font-family:Geist,sans-serif;font-weight:600;" class="text-on-surface">${opt.label}</span>
           <span class="text-xs text-outline">(${opt.size})</span>
-          ${bothDone ? '<span class="px-1.5 py-0.5 rounded bg-status-active/20 border border-status-active/40 text-status-active text-[10px] font-semibold">DOWNLOADED</span>' : ''}
+          ${bothDone ? '<span class="px-2 py-0.5 rounded bg-status-active/20 border border-status-active/40 text-status-active text-[10px] font-semibold">DOWNLOADED</span>' : ''}
         </div>
         <div class="font-mono text-xs text-on-surface-variant truncate">${opt.gguf}</div>
         <div class="font-mono text-xs text-on-surface-variant/60 truncate">+ ${opt.mmproj}</div>
@@ -300,7 +300,7 @@ function renderComfyuiRoots() {
     button.type = 'button';
     button.textContent = root;
     button.title = root;
-    button.className = 'max-w-full truncate px-2 py-1 rounded border border-outline-variant/30 text-[10px] font-mono text-outline hover:text-primary hover:border-badge-checkpoint';
+    button.className = 'max-w-full truncate px-2 py-0.5 rounded border border-outline-variant/30 text-[10px] font-mono text-outline hover:text-primary hover:border-badge-checkpoint';
     button.addEventListener('click', () => browseComfyuiFolders(root));
     comfyuiBrowseRoots.appendChild(button);
   }

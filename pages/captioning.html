@@ -137,12 +137,12 @@ tailwind.config = {
   <div class="flex items-center gap-3">
     <span class="material-symbols-outlined text-badge-lora text-[20px]">subtitles</span>
     <span class="font-headline-sm text-headline-sm font-bold tracking-tight">ComfyCaption</span>
-    <span class="rounded border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] uppercase text-ink-muted">v2.6.1</span>
-    <div id="conn-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-active/10 border border-status-active/30 text-status-active font-code-sm text-code-sm">
+    <span class="rounded border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] uppercase text-ink-muted">v2.7.0</span>
+    <div id="conn-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded border border-status-active/30 bg-status-active/10 text-status-active font-code-sm text-[10px] leading-[1.5]">
       <span class="w-1.5 h-1.5 rounded-full bg-status-active animate-ping"></span>
       <span id="conn-text">Connected</span>
     </div>
-    <div id="conn-badge-err" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-alert/10 border border-status-alert/30 text-status-alert font-code-sm text-code-sm">
+    <div id="conn-badge-err" class="hidden items-center gap-1.5 px-2 py-0.5 rounded border border-status-alert/30 bg-status-alert/10 text-status-alert font-code-sm text-[10px] leading-[1.5]">
       <span class="w-1.5 h-1.5 rounded-full bg-status-alert"></span>
       <span>LM Studio offline</span>
     </div>
@@ -294,7 +294,7 @@ tailwind.config = {
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[14px] text-outline">edit_note</span>
           <span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Caption</span>
-          <span id="caption-saved-badge" class="hidden font-label-sm text-[9px] px-1.5 py-0.5 rounded bg-status-active/20 text-status-active border border-status-active/30">Saved</span>
+          <span id="caption-saved-badge" class="hidden font-label-sm text-[10px] leading-[1.5] px-2 py-0.5 rounded bg-status-active/20 text-status-active border border-status-active/30">Saved</span>
         </div>
         <div class="flex items-center gap-1.5">
           <button id="btn-save-caption" class="sd-btn sd-btn-primary sd-btn-sm">
@@ -574,7 +574,7 @@ function renderGrid() {
       <div class="asset-thumbnail relative rounded overflow-hidden">
         <img src="${img.image}" alt="${img.file}" class="w-full h-full object-cover"/>
         <div class="absolute bottom-1 right-1">
-          <span class="font-label-sm text-[9px] px-1 py-0.5 rounded font-bold ${img.hasCaption ? 'bg-status-active/90 text-surface-container-lowest' : 'bg-status-warning/90 text-surface-container-lowest'}">
+          <span class="font-label-sm text-[10px] px-2 py-0.5 rounded font-bold ${img.hasCaption ? 'bg-status-active/90 text-surface-container-lowest' : 'bg-status-warning/90 text-surface-container-lowest'}">
             ${img.hasCaption ? 'Tagged' : 'Pending'}
           </span>
         </div>
@@ -633,7 +633,7 @@ function renderTagCloud(text) {
     if (shown.has(t.toLowerCase()) || t.length < 2) return;
     shown.add(t.toLowerCase());
     const pill = document.createElement('span');
-    pill.className = 'tag-pill inline-flex items-center px-1.5 py-0.5 rounded bg-badge-lora/15 border border-badge-lora/30 text-primary font-code-sm text-[10px]';
+    pill.className = 'tag-pill inline-flex items-center px-2 py-0.5 rounded bg-badge-lora/15 border border-badge-lora/30 text-primary font-code-sm text-[10px]';
     pill.textContent = t.length > 30 ? t.substring(0, 28) + '…' : t;
     pill.title = 'Click to remove';
     pill.addEventListener('click', () => {
