@@ -1,14 +1,14 @@
 """SDCodex ComfyCaption — caption_backend.py
 
 All API routes for the ComfyCaption plugin:
-  - /comfy-caption/api/check-connection   POST  — probe LM Studio / vision model server
-  - /comfy-caption/api/images             GET   — list images in a folder with captions
-  - /comfy-caption/api/caption-single     POST  — caption one image (writes .txt sidecar)
-  - /comfy-caption/api/caption            POST  — batch caption via SSE stream
-  - /comfy-caption/api/workflow           GET   — download embedded ComfyUI workflow JSON
-  - /comfy-caption/api/browse-folders     GET   — web-based directory browser
-  - /comfy-caption/api/browse-roots       GET   — quick-pick roots for the folder browser
-  - /comfy-caption/models/*               delegated to caption_models_backend blueprint
+  - /betacaption/api/check-connection   POST  — probe LM Studio / vision model server
+  - /betacaption/api/images             GET   — list images in a folder with captions
+  - /betacaption/api/caption-single     POST  — caption one image (writes .txt sidecar)
+  - /betacaption/api/caption            POST  — batch caption via SSE stream
+  - /betacaption/api/workflow           GET   — download embedded ComfyUI workflow JSON
+  - /betacaption/api/browse-folders     GET   — web-based directory browser
+  - /betacaption/api/browse-roots       GET   — quick-pick roots for the folder browser
+  - /betacaption/models/*               delegated to caption_models_backend blueprint
 """
 
 import base64
@@ -53,7 +53,7 @@ except ImportError:
 # Blueprint
 # ---------------------------------------------------------------------------
 
-caption_bp = Blueprint("caption_bp", __name__, url_prefix="/comfy-caption/api")
+caption_bp = Blueprint("beta_caption_bp", __name__, url_prefix="/betacaption/api")
 
 
 def _core_session_missing() -> bool:
@@ -408,7 +408,7 @@ def get_images():
             "sdNegative": sd["sdNegative"],
             "sdSetting": sd["sdSetting"],
             # Live disk URL (cached, lazy-loaded) instead of an inline data URL.
-            "url": f"/comfy-caption/api/file?folderPath={quote(folder_path)}&file={quote(fname)}",
+            "url": f"/betacaption/api/file?folderPath={quote(folder_path)}&file={quote(fname)}",
             "hasCaption": bool(caption),
             "hasWorkflow": _extract_comfy_workflow(img_path) is not None,
             "width": width,

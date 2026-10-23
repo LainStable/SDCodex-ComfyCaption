@@ -10,20 +10,30 @@ if plugin_dir not in sys.path:
 
 def init_plugin(app, db, plugin_info=None):
     """Register caption APIs and the ComfyUI node installer."""
-    from caption_backend import caption_bp
-    from caption_models_backend import models_bp
-    from comfyui_nodes_backend import nodes_bp
+    from betacaption_backend import caption_bp
+    from betacaption_models_backend import models_bp
+    from betacaption_nodes_backend import nodes_bp
 
-    if "caption_bp" not in app.blueprints:
+    if "beta_caption_bp" not in app.blueprints:
         app.register_blueprint(caption_bp)
-        app.logger.info("ComfyCaption API mounted at /comfy-caption/api")
+        app.logger.info("ComfyCaption API mounted at /betacaption/api")
 
-    if "caption_models_bp" not in app.blueprints:
+    if "beta_caption_models_bp" not in app.blueprints:
         app.register_blueprint(models_bp)
-        app.logger.info("ComfyCaption Models API mounted at /comfy-caption/models")
+        app.logger.info("ComfyCaption Models API mounted at /betacaption/models")
 
-    if "comfyui_nodes_bp" not in app.blueprints:
+    if "beta_comfyui_nodes_bp" not in app.blueprints:
         app.register_blueprint(nodes_bp)
-        app.logger.info("ComfyCaption node installer mounted at /comfy-caption/models/nodes")
+        app.logger.info("ComfyCaption node installer mounted at /betacaption/models/nodes")
+
+    # Vendored copy of the Gallery browser (grid, folders and media viewer) so
+    # this beta plugin does not depend on the Gallery plugin being installed.
+    try:
+        from betacaption_gallery_browser import gallery_bp
+
+        if "betacaption_gallery" not in app.blueprints:
+            app.register_blueprint(gallery_bp)
+    except Exception:
+        app.logger.warning("Beta Caption: vendored Gallery browser unavailable", exc_info=True)
 
     return True

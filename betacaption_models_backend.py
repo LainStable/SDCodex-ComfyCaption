@@ -1,12 +1,12 @@
 """SDCodex ComfyCaption — caption_models_backend.py
 
 HuggingFace model downloader for captioning GGUF models.
-Routes under /comfy-caption/models/:
-  GET  /comfy-caption/models/status    — download job status
-  POST /comfy-caption/models/download  — start background download
-  POST /comfy-caption/models/stop      — cancel download
-  POST /comfy-caption/models/save      — save HF token / repo settings
-  GET  /comfy-caption/models/list      — list files present on disk
+Routes under /betacaption/models/:
+  GET  /betacaption/models/status    — download job status
+  POST /betacaption/models/download  — start background download
+  POST /betacaption/models/stop      — cancel download
+  POST /betacaption/models/save      — save HF token / repo settings
+  GET  /betacaption/models/list      — list files present on disk
 """
 
 import json
@@ -317,7 +317,7 @@ def _list_models():
 # Blueprint & routes
 # ---------------------------------------------------------------------------
 
-models_bp = Blueprint("caption_models_bp", __name__, url_prefix="/comfy-caption/models")
+models_bp = Blueprint("beta_caption_models_bp", __name__, url_prefix="/betacaption/models")
 
 
 def _core_session_missing() -> bool:

@@ -5,9 +5,9 @@ import shutil
 
 from flask import Blueprint, current_app, jsonify, request
 
-from caption_models_backend import load_settings, save_settings
+from betacaption_models_backend import load_settings, save_settings
 
-nodes_bp = Blueprint("comfyui_nodes_bp", __name__, url_prefix="/comfy-caption/models/nodes")
+nodes_bp = Blueprint("beta_comfyui_nodes_bp", __name__, url_prefix="/betacaption/models/nodes")
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 NODE_PACK = os.path.join(PLUGIN_DIR, "comfyui-sdcodex")
 NODE_PACK_NAME = "comfyui-sdcodex"

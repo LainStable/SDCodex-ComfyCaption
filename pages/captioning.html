@@ -346,7 +346,7 @@ tailwind.config = {
 
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
-const API = '/comfy-caption/api';
+const API = '/betacaption/api';
 let images     = [];      // current page array from /api/images
 let allImages  = [];      // flattened for grid filtering (loaded pages)
 let activeIdx  = -1;
@@ -918,8 +918,8 @@ const folderModal = document.getElementById('folder-modal');
 const galleryPicker = document.getElementById('gallery-picker');
 const galleryFoot = document.getElementById('gallery-foot');
 const galleryCurrent = document.getElementById('gallery-current');
-const GALLERY_PAGE = '/api/plugins/gallery/page/gallery';
-const GALLERY_STATUS = '/gallery/api/status';
+const GALLERY_PAGE = '/api/plugins/betacaption/page/browser';
+const GALLERY_STATUS = '/betacaption/gallery/api/status';
 const trimPath = (p) => String(p || '').replace(/\/+$/, '');
 let browseMode = '';
 let browseRoot = '';
@@ -980,7 +980,7 @@ async function openFolders() {
     browseRoot = root;
     const params = new URLSearchParams({ mode: 'folder' });
     if (root) params.set('root', root);
-    galleryPicker.src = `/api/plugins/gallery/page/picker?${params.toString()}`;
+    galleryPicker.src = `/api/plugins/betacaption/page/picker?${params.toString()}`;
     galleryFoot.hidden = true;
   }
   folderModal.classList.add('open');

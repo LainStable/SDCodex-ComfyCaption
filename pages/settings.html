@@ -176,7 +176,7 @@ tailwind.config = {
 </div>
 
 <script>
-const MODELS_API = '/comfy-caption/models';
+const MODELS_API = '/betacaption/models';
 const NODES_API = `${MODELS_API}/nodes`;
 let pollTimer = null;
 let data = { options:[], settings:{}, models_dir:'', present:{} };
@@ -284,7 +284,7 @@ function comfyuiBrowserRows() {
 
 async function loadComfyuiRoots() {
   try {
-    const response = await fetch('/comfy-caption/api/browse-roots');
+    const response = await fetch('/betacaption/api/browse-roots');
     const result = await response.json();
     comfyuiBrowser.roots = result.roots || [];
     renderComfyuiRoots();
@@ -379,7 +379,7 @@ function comfyuiBrowserKeydown(event) {
 
 async function browseComfyuiFolders(path) {
   try {
-    const response = await fetch(`/comfy-caption/api/browse-folders?path=${encodeURIComponent(path)}`);
+    const response = await fetch(`/betacaption/api/browse-folders?path=${encodeURIComponent(path)}`);
     const result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error || `Request failed (${response.status})`);
     comfyuiBrowser.cwd = result.cwd;
