@@ -158,7 +158,7 @@ tailwind.config = {
     <input id="folder-input" type="text" placeholder="/data/downloads  (type a path or browse →)"
            class="w-full bg-surface-container-lowest border border-outline-variant/40 rounded px-2.5 py-1 text-body-sm text-on-surface placeholder:text-outline/60 focus:outline-none focus:border-badge-checkpoint"/>
   </div>
-  <button id="btn-browse" title="Browse directories" class="sd-btn sd-btn-icon">
+  <button id="btn-browse" title="Browse folders & images" class="sd-btn sd-btn-icon">
     <span class="material-symbols-outlined text-[16px]">manage_search</span>
   </button>
   <button id="btn-load" class="sd-btn">
@@ -988,7 +988,11 @@ async function restorePageState() {
     }
   } catch (_) { /* backend may not have a batch yet */ }
 }
-void restorePageState();
+void restorePageState().then(() => {
+  // Nothing on screen means the saved root is wrong/empty: open the shared
+  // Gallery browser immediately so the user can browse to real media.
+  if (!allImages.length) openFolders();
+});
 </script>
 </body>
 </html>
