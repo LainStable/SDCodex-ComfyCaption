@@ -643,7 +643,7 @@ function renderGrid() {
     card.className = `asset-card relative group rounded-lg overflow-hidden border ${img.hasCaption ? 'border-status-active/30' : 'border-outline-variant/30'} hover:border-badge-checkpoint/60 bg-surface-container/30 p-1 cursor-pointer transition-all`;
     card.innerHTML = `
       <div class="asset-thumbnail relative rounded overflow-hidden">
-        <img src="${img.image}" alt="${img.file}" class="w-full h-full object-cover"/>
+        <img src="${img.url}" alt="${img.file}" loading="lazy" class="w-full h-full object-cover"/>
         <div class="absolute bottom-1 right-1">
           <span class="font-label-sm text-[10px] px-2 py-0.5 rounded font-bold ${img.hasCaption ? 'bg-status-active/90 text-surface-container-lowest' : 'bg-status-warning/90 text-surface-container-lowest'}">
             ${img.hasCaption ? 'Tagged' : 'Pending'}
@@ -669,7 +669,7 @@ function selectImage(idx) {
   // Update active visual
   document.querySelectorAll('.asset-card').forEach(c => c.classList.remove('active'));
 
-  activeImg.src = img.image || '';
+  activeImg.src = img.url || '';
   activeImg.alt = img.file;
   activeImg.classList.remove('hidden');
   imgPlaceholder.classList.add('hidden');

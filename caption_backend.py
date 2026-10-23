@@ -21,8 +21,9 @@ import struct
 import threading
 import time
 from io import BytesIO
+from urllib.parse import quote
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, jsonify, request, send_file
 
 try:
     from PIL import Image
@@ -332,6 +333,30 @@ def check_connection():
             return jsonify({"connected": False, "error": str(fe)})
 
 
+@caption_bp.get("/file")
+def get_file():
+    """Stream one image straight from disk (the Gallery plugin's approach).
+
+    The grid used to receive every image as a base64 data URL inside the
+    /images JSON: 40 files per page meant tens of megabytes per request and
+    pinned server threads. Browsers cache and lazily load plain URLs instead.
+    """
+    folder_path = (request.args.get("folderPath") or "").strip("\"'")
+    name = os.path.basename((request.args.get("file") or "").strip("\"'"))
+    if not folder_path or not name or os.path.splitext(name)[1].lower() not in IMAGE_EXTENSIONS:
+        return jsonify({"error": "folderPath and a valid image file are required"}), 400
+    if not os.path.isdir(folder_path):
+        return jsonify({"error": f"Folder does not exist: {folder_path}"}), 400
+    image_path = os.path.join(folder_path, name)
+    if not _is_safe_path(folder_path, image_path) or not os.path.isfile(image_path):
+        return jsonify({"error": "Image file not found"}), 404
+    mime, _ = mimetypes.guess_type(image_path)
+    response = send_file(image_path, mimetype=mime or "application/octet-stream", conditional=True)
+    response.headers["Content-Disposition"] = "inline"
+    response.headers["Cache-Control"] = "private, max-age=300"
+    return response
+
+
 @caption_bp.get("/images")
 def get_images():
     """List images in a folder with captions + SD metadata (paginated)."""
@@ -368,19 +393,11 @@ def get_images():
 
         sd = _read_sd_info(img_path)
 
-        b64 = ""
         width = height = 0
         if _PIL_OK:
             try:
                 with Image.open(img_path) as _im:
                     width, height = _im.size
-            except Exception:
-                pass
-            try:
-                with open(img_path, "rb") as fh:
-                    raw = fh.read()
-                mime, _ = mimetypes.guess_type(img_path)
-                b64 = f"data:{mime or 'image/jpeg'};base64," + base64.b64encode(raw).decode()
             except Exception:
                 pass
 
@@ -390,7 +407,8 @@ def get_images():
             "sdPrompt": sd["sdPrompt"],
             "sdNegative": sd["sdNegative"],
             "sdSetting": sd["sdSetting"],
-            "image": b64,
+            # Live disk URL (cached, lazy-loaded) instead of an inline data URL.
+            "url": f"/comfy-caption/api/file?folderPath={quote(folder_path)}&file={quote(fname)}",
             "hasCaption": bool(caption),
             "hasWorkflow": _extract_comfy_workflow(img_path) is not None,
             "width": width,
