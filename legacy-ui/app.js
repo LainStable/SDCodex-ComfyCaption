@@ -1210,7 +1210,7 @@ async function loadCaptionCapability() {
     const section = $('caption-this-section');
     if (!section) return;
     try {
-        const response = await fetch('/comfy-caption/api/status', { cache: 'no-store', credentials: 'same-origin' });
+        const response = await fetch('/betacaption/api/status', { cache: 'no-store', credentials: 'same-origin' });
         if (response.ok) {
             const status = await response.json();
             captionCapable = Boolean(status && status.ok !== false);
@@ -1223,7 +1223,7 @@ async function loadCaptionCapability() {
             const r = await fetch('/api/plugins', { cache: 'no-store', credentials: 'same-origin' });
             if (r.ok) {
                 const list = await r.json();
-                if (Array.isArray(list) && list.some(p => p.id === 'comfy-caption' || p.id === 'caption')) {
+                if (Array.isArray(list) && list.some(p => p.id === 'betacaption' || p.id === 'comfy-caption' || p.id === 'caption')) {
                     captionCapable = true;
                 }
             }
@@ -1470,7 +1470,7 @@ async function captionCurrentImage() {
                 // request API uses the same `body` key for the request body and
                 // the response mode, so a JSON request body is silently dropped
                 // (last `body: 'json'` wins) and Flask 400s on the empty body.
-                const conn = await fetch('/comfy-caption/api/check-connection', {
+                const conn = await fetch('/betacaption/api/check-connection', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ lmStudioUrl })
                 }).then(r => r.json().catch(() => null));
@@ -1484,7 +1484,7 @@ async function captionCurrentImage() {
         // Raw fetch (see note above): resilience.request would drop the JSON
         // body due to the `body` key collision, sending an empty body that
         // Flask rejects with a 400 Bad Request.
-        const res = await fetch('/comfy-caption/api/caption-single', {
+        const res = await fetch('/betacaption/api/caption-single', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 folderPath: target.folderPath,
