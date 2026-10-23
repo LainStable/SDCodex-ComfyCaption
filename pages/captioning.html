@@ -95,6 +95,15 @@ tailwind.config = {
   .asset-thumbnail { aspect-ratio: 4 / 3; background: #080b12; }
   .asset-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
+  /* Live on-disk explorer rail (Gallery-style folder chips + counts). */
+  .explorer-rail { display: flex; align-items: center; gap: 4px; overflow-x: auto; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); scrollbar-width: thin; }
+  .explorer-rail:empty { display: none; }
+  .explorer-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid #354054; border-radius: 3px; background: rgba(255,255,255,0.04); color: #aab4c6; font: 600 10px/1.5 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
+  .explorer-chip:hover { border-color: rgba(99,102,241,0.55); background: rgba(99,102,241,0.18); color: #fff; }
+  .explorer-chip.current { border-color: rgba(99,102,241,0.55); background: rgba(99,102,241,0.2); color: #fff; }
+  .explorer-chip .n { color: #8a94a6; font-weight: 500; }
+  .explorer-sep { flex: 0 0 auto; color: #64748b; font-size: 11px; }
+
   /* Folder browser — gallery-style: quick-root chips, a clickable breadcrumb
      path bar, a filter box and keyboard-navigable folder rows. */
   .folder-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5,8,13,0.73); }
@@ -137,7 +146,7 @@ tailwind.config = {
   <div class="flex items-center gap-3">
     <span class="material-symbols-outlined text-badge-lora text-[20px]">subtitles</span>
     <span class="font-headline-sm text-headline-sm font-bold tracking-tight">ComfyCaption</span>
-    <span class="rounded border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] uppercase text-ink-muted">v2.7.0</span>
+    <span class="rounded border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] uppercase text-ink-muted">v2.8.0</span>
     <div id="conn-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded border border-status-active/30 bg-status-active/10 text-status-active font-code-sm text-[10px] leading-[1.5]">
       <span class="w-1.5 h-1.5 rounded-full bg-status-active animate-ping"></span>
       <span id="conn-text">Connected</span>
@@ -239,6 +248,8 @@ tailwind.config = {
         <button id="filter-tagged"   class="filter-btn sd-btn sd-btn-pill" aria-pressed="false">Tagged</button>
       </div>
     </div>
+    <!-- Live disk explorer -->
+    <div id="explorer-rail" class="explorer-rail" aria-label="Folders"></div>
     <!-- Grid scroll area -->
     <div id="image-grid" class="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-1.5 content-start">
       <div id="grid-empty" class="col-span-2 flex flex-col items-center justify-center h-40 text-outline text-body-sm gap-2">
@@ -520,12 +531,72 @@ function enableBatch() {
 // ─── Load folder ──────────────────────────────────────────────────────────────
 document.getElementById('btn-load').addEventListener('click', () => loadFolder(folderInput.value.trim()));
 
+const explorerRail = document.getElementById('explorer-rail');
+
+/** Live on-disk explorer: breadcrumb + subfolders with media counts. */
+async function renderExplorer() {
+  if (!folderPath) return;
+  try {
+    const response = await fetch(`${API}/folders?path=${encodeURIComponent(folderPath)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unable to read folder');
+    explorerRail.replaceChildren();
+
+    const parts = String(data.cwd || folderPath).split('/').filter(Boolean);
+    let running = '';
+    parts.forEach((part, index) => {
+      running += `/${part}`;
+      if (index > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'explorer-sep';
+        sep.textContent = '›';
+        explorerRail.appendChild(sep);
+      }
+      const crumb = document.createElement('button');
+      crumb.type = 'button';
+      crumb.className = `explorer-chip${index === parts.length - 1 ? ' current' : ''}`;
+      crumb.textContent = part;
+      crumb.title = running;
+      crumb.addEventListener('click', () => loadFolder(running).catch(error => alert(error.message)));
+      explorerRail.appendChild(crumb);
+    });
+
+    if (data.parent && data.parent !== data.cwd) {
+      const up = document.createElement('button');
+      up.type = 'button';
+      up.className = 'explorer-chip';
+      up.textContent = '↑';
+      up.title = `Up to ${data.parent}`;
+      up.addEventListener('click', () => loadFolder(data.parent).catch(error => alert(error.message)));
+      explorerRail.appendChild(up);
+    }
+
+    for (const folder of data.folders || []) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'explorer-chip';
+      chip.title = folder.path;
+      const label = document.createElement('span');
+      label.textContent = folder.name;
+      const count = document.createElement('span');
+      count.className = 'n';
+      count.textContent = String(folder.count ?? 0);
+      chip.append(label, count);
+      chip.addEventListener('click', () => loadFolder(folder.path).catch(error => alert(error.message)));
+      explorerRail.appendChild(chip);
+    }
+  } catch (error) {
+    explorerRail.textContent = error.message;
+  }
+}
+
 async function loadFolder(path) {
   if (!path) return;
   folderPath = path;
   folderInput.value = path;
   localStorage.setItem('captioningFolderPath', path);
   page = 1; allImages = [];
+  renderExplorer();
   await fetchPage();
   enableBatch();
 }
@@ -582,6 +653,7 @@ function renderGrid() {
       </div>
       <div class="pt-1 px-0.5">
         <span class="font-code-sm text-[10px] text-on-surface-variant truncate block">${img.file}</span>
+        <span class="font-code-sm text-[10px] text-outline truncate block">${img.width ? `${img.width}×${img.height}` : ''}${img.size ? ` · ${(img.size / 1048576).toFixed(1)} MB` : ''}</span>
       </div>`;
     card.addEventListener('click', () => selectImage(realIdx));
     if (realIdx === activeIdx) card.classList.add('active');
@@ -603,7 +675,7 @@ function selectImage(idx) {
   imgPlaceholder.classList.add('hidden');
   imgOverlay.classList.remove('hidden');
   imgName.textContent = img.file;
-  imgDims.textContent = '';   // dims not returned by list endpoint
+  imgDims.textContent = img.width ? `${img.width}×${img.height}` : '';
 
   // Caption
   captionEditor.value = img.caption || '';
@@ -1041,7 +1113,20 @@ async function openFolders(path = folderInput.value.trim()) {
 }
 
 async function restorePageState() {
-  if (folderInput.value.trim()) await loadFolder(folderInput.value.trim());
+  if (folderInput.value.trim()) {
+    await loadFolder(folderInput.value.trim());
+  } else {
+    // Land on the live disk explorer instead of an empty grid.
+    try {
+      const rr = await fetch(`${API}/browse-roots`);
+      const rd = await rr.json();
+      const roots = rd.roots || [];
+      const preferred = roots.find(p => p === '/data/downloads')
+        || roots.find(p => p === '/data')
+        || roots[0];
+      if (preferred) await loadFolder(preferred);
+    } catch (_) { /* leave the empty state */ }
+  }
   try {
     const storedFolder = localStorage.getItem('captioningFolderPath') || '';
     const r = await fetch(`${API}/batch/status?since=0`, { cache: 'no-store' });

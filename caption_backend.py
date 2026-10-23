@@ -369,10 +369,14 @@ def get_images():
         sd = _read_sd_info(img_path)
 
         b64 = ""
+        width = height = 0
         if _PIL_OK:
             try:
-                with Image.open(img_path) as _:
-                    pass
+                with Image.open(img_path) as _im:
+                    width, height = _im.size
+            except Exception:
+                pass
+            try:
                 with open(img_path, "rb") as fh:
                     raw = fh.read()
                 mime, _ = mimetypes.guess_type(img_path)
@@ -389,6 +393,9 @@ def get_images():
             "image": b64,
             "hasCaption": bool(caption),
             "hasWorkflow": _extract_comfy_workflow(img_path) is not None,
+            "width": width,
+            "height": height,
+            "size": os.path.getsize(img_path),
         })
 
     return jsonify({
@@ -695,6 +702,56 @@ def browse_roots():
         except Exception:
             continue
     return jsonify({"roots": seen, "isDocker": _in_docker()})
+
+
+@caption_bp.get("/folders")
+def list_folders():
+    """Live on-disk folder listing with media counts (Gallery-style explorer)."""
+    req_path = os.path.abspath(
+        os.path.expanduser((request.args.get("path") or "/data").strip("\"'"))
+    )
+    if not os.path.exists(req_path):
+        return jsonify({"error": f"Folder does not exist: {req_path}"}), 400
+    if not os.path.isdir(req_path):
+        req_path = os.path.dirname(req_path)
+
+    folders = []
+    try:
+        for entry in sorted(os.listdir(req_path)):
+            full = os.path.join(req_path, entry)
+            if (
+                entry.startswith(".")
+                or entry in ("__pycache__", "node_modules")
+                or not os.path.isdir(full)
+            ):
+                continue
+            count = 0
+            try:
+                for _root, dirs, files in os.walk(full):
+                    dirs[:] = [
+                        d for d in dirs
+                        if not d.startswith(".") and d not in ("__pycache__", "node_modules")
+                    ]
+                    for name in files:
+                        if os.path.splitext(name)[1].lower() in IMAGE_EXTENSIONS:
+                            count += 1
+                    if count >= 9999:
+                        break
+            except OSError:
+                pass
+            folders.append({"name": entry, "path": full, "count": count})
+    except PermissionError:
+        return jsonify({"error": f"Permission denied: {req_path}"}), 403
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    parent = os.path.dirname(req_path.rstrip(os.sep)) or os.sep
+    return jsonify({
+        "cwd": req_path,
+        "parent": parent,
+        "folders": folders,
+        "isDocker": _in_docker(),
+    })
 
 
 @caption_bp.get("/status")
