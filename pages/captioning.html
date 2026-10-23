@@ -108,10 +108,14 @@ tailwind.config = {
      path bar, a filter box and keyboard-navigable folder rows. */
   .folder-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5,8,13,0.73); }
   .folder-modal.open { display: flex; }
-  .folder-modal-box { display: flex; flex-direction: column; width: min(760px, 96vw); height: min(640px, 86vh); max-height: 86vh; overflow: hidden; background: #171e2a; border: 1px solid #354054; border-radius: 8px; }
+  .folder-modal-box { display: flex; flex-direction: column; width: min(1400px, 96vw); height: min(900px, 92vh); max-height: 92vh; overflow: hidden; background: #171e2a; border: 1px solid #354054; border-radius: 8px; }
   .folder-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #2b3444; }
   .folder-modal-head strong { font-family: Geist, Inter, sans-serif; font-size: 15px; font-weight: 700; color: #dfe2ef; }
   .gallery-picker { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: #121821; display: block; }
+  .folder-modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-top: 1px solid #2b3444; background: rgba(9, 13, 22, 0.55); }
+  .folder-modal-foot[hidden] { display: none; }
+  .folder-modal-foot .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8a94a6; font: 500 11px/1.5 "JetBrains Mono", ui-monospace, monospace; }
+  .folder-modal-foot button.use { border-color: rgba(99, 102, 241, 0.55); background: rgba(99, 102, 241, 0.25); color: #fff; }
   .folder-modal-head button { padding: 6px 10px; border: 1px solid #354054; border-radius: 5px; background: #202838; color: #dfe2ef; font-size: 12px; cursor: pointer; }
   .folder-modal-head button:hover { border-color: #6672ee; background: #29334a; }
 </style>
@@ -325,7 +329,7 @@ tailwind.config = {
   </aside>
 </main>
 
-<!-- ===== FOLDER BROWSER (shared Gallery plugin picker: folders + live images) ===== -->
+<!-- ===== FOLDER BROWSER (full Gallery page: folders, media grid and viewer) ===== -->
 <div id="folder-modal" class="folder-modal" role="dialog" aria-modal="true" aria-labelledby="folder-title">
   <div class="folder-modal-box">
     <div class="folder-modal-head">
@@ -333,6 +337,10 @@ tailwind.config = {
       <button id="close-folder" type="button">Close</button>
     </div>
     <iframe id="gallery-picker" class="gallery-picker" title="Browse folders and images"></iframe>
+    <div class="folder-modal-foot" id="gallery-foot" hidden>
+      <span class="path" id="gallery-current">Gallery</span>
+      <button id="use-folder" type="button" class="use">Use this folder</button>
+    </div>
   </div>
 </div>
 
@@ -900,35 +908,92 @@ nextPage.addEventListener('click', () => { if (page < totalPages) { page++; fetc
 // ─── Model select → enable batch ─────────────────────────────────────────────
 modelSelect.addEventListener('change', enableBatch);
 
-// ─── Folder browser (shared Gallery plugin picker) ───────────────────────────
-// The picker lists folders and previews the images inside them straight from
-// disk. It posts the chosen folder back here; this page's grid/viewer are
-// unchanged.
+// ─── Folder browser (full Gallery plugin page) ───────────────────────────────
+// The real Gallery browser is embedded (folder navigation, media grid and the
+// image viewer), so choosing a folder here matches browsing in the Gallery
+// space. The footer reads the iframe's `album` URL parameter to know which
+// folder is open; the small picker stays as a fallback when the caption folder
+// lives outside the Gallery root.
 const folderModal = document.getElementById('folder-modal');
 const galleryPicker = document.getElementById('gallery-picker');
+const galleryFoot = document.getElementById('gallery-foot');
+const galleryCurrent = document.getElementById('gallery-current');
+const GALLERY_PAGE = '/api/plugins/gallery/page/gallery';
+const GALLERY_STATUS = '/gallery/api/status';
+const trimPath = (p) => String(p || '').replace(/\/+$/, '');
+let browseMode = '';
+let browseRoot = '';
+let browseTimer = 0;
+
+async function galleryRoot() {
+  try {
+    const response = await fetch(GALLERY_STATUS, { cache: 'no-store', credentials: 'same-origin' });
+    if (!response.ok) return '';
+    const data = await response.json();
+    return trimPath(data.root);
+  } catch (_) { return ''; }
+}
+
+function galleryAlbum() {
+  try {
+    const url = new URL(galleryPicker.contentWindow.location.href);
+    return url.searchParams.get('album') || '';
+  } catch (_) { return ''; }
+}
+
+function syncGalleryPath() {
+  if (browseMode !== 'gallery') return;
+  const album = galleryAlbum();
+  galleryCurrent.textContent = album ? `${browseRoot}/${album}` : browseRoot;
+}
 
 function closeFolderPicker() {
   folderModal.classList.remove('open');
+  if (browseTimer) { clearInterval(browseTimer); browseTimer = 0; }
 }
 
 async function openFolders() {
-  const current = (folderInput.value || '').trim().replace(/\/+$/, '');
-  // Start at the configured root that contains the current folder, so the
-  // picker's breadcrumb can walk all the way up.
+  const current = trimPath(folderInput.value);
+  // Start at the configured root that contains the current folder, so folder
+  // navigation can walk all the way up.
   let root = current;
   try {
     const response = await fetch(`${API}/browse-roots`);
     const data = await response.json();
-    const roots = (data.roots || []).map((p) => String(p).replace(/\/+$/, ''));
+    const roots = (data.roots || []).map((p) => trimPath(p));
     const match = roots
       .filter((p) => current === p || current.startsWith(`${p}/`))
       .sort((a, b) => b.length - a.length)[0];
     if (match) root = match;
   } catch (_) { /* default root is fine */ }
-  const params = new URLSearchParams({ mode: 'folder' });
-  if (root) params.set('root', root);
-  galleryPicker.src = `/api/plugins/gallery/page/picker?${params.toString()}`;
+
+  const gallery = await galleryRoot();
+  const insideGallery = gallery && (!current || current === gallery || current.startsWith(`${gallery}/`));
+  if (insideGallery) {
+    browseMode = 'gallery';
+    browseRoot = gallery;
+    const album = !current || current === gallery ? '' : current.slice(gallery.length + 1);
+    galleryPicker.src = `${GALLERY_PAGE}?album=${encodeURIComponent(album)}`;
+    galleryFoot.hidden = false;
+  } else {
+    browseMode = 'picker';
+    browseRoot = root;
+    const params = new URLSearchParams({ mode: 'folder' });
+    if (root) params.set('root', root);
+    galleryPicker.src = `/api/plugins/gallery/page/picker?${params.toString()}`;
+    galleryFoot.hidden = true;
+  }
   folderModal.classList.add('open');
+  if (browseTimer) { clearInterval(browseTimer); browseTimer = 0; }
+  if (browseMode === 'gallery') {
+    syncGalleryPath();
+    browseTimer = setInterval(syncGalleryPath, 600);
+  }
+}
+
+function useGalleryFolder() {
+  if (browseMode !== 'gallery') return;
+  applyPickedFolder({ path: browseRoot, relative: galleryAlbum() });
 }
 function applyPickedFolder(data) {
   const relative = String(data.relative || '').replace(/^\/+|\/+$/g, '');
@@ -940,6 +1005,7 @@ function applyPickedFolder(data) {
 }
 
 document.getElementById('btn-browse').addEventListener('click', openFolders);
+document.getElementById('use-folder').addEventListener('click', useGalleryFolder);
 document.getElementById('close-folder').addEventListener('click', closeFolderPicker);
 folderModal.addEventListener('click', (event) => { if (event.target === folderModal) closeFolderPicker(); });
 window.addEventListener('message', (event) => {
