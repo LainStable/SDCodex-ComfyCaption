@@ -1219,11 +1219,14 @@ async function loadCaptionCapability() {
         captionCapable = false;
     }
     if (!captionCapable) {
+        // Fall back to the installed-plugin list: this plugin may be present
+        // without exposing /status to this page yet. Only the beta channel
+        // counts — this copy never talks to the stable ComfyCaption plugin.
         try {
             const r = await fetch('/api/plugins', { cache: 'no-store', credentials: 'same-origin' });
             if (r.ok) {
                 const list = await r.json();
-                if (Array.isArray(list) && list.some(p => p.id === 'betacaption' || p.id === 'comfy-caption' || p.id === 'caption')) {
+                if (Array.isArray(list) && list.some(p => p.id === 'betacaption')) {
                     captionCapable = true;
                 }
             }
