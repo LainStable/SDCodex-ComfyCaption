@@ -36,4 +36,15 @@ def init_plugin(app, db, plugin_info=None):
     except Exception:
         app.logger.warning("Beta Caption: vendored Gallery browser unavailable", exc_info=True)
 
+    # Remote Immich servers are proxied by this plugin so the API key stays on
+    # the server and no CORS cooperation is needed from Immich.
+    try:
+        from betacaption_immich_backend import immich_bp
+
+        if "betacaption_immich" not in app.blueprints:
+            app.register_blueprint(immich_bp)
+            app.logger.info("Beta Caption Immich bridge mounted at /betacaption/gallery/api/immich")
+    except Exception:
+        app.logger.warning("Beta Caption: Immich bridge unavailable", exc_info=True)
+
     return True
