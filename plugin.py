@@ -26,4 +26,14 @@ def init_plugin(app, db, plugin_info=None):
         app.register_blueprint(nodes_bp)
         app.logger.info("ComfyCaption node installer mounted at /comfy-caption/models/nodes")
 
+    # Vendored copy of the Gallery browser (grid, folders and media viewer) so
+    # the captioner does not depend on the Gallery plugin being installed.
+    try:
+        from comfy_caption_gallery_browser import gallery_bp
+
+        if "comfy_caption_gallery" not in app.blueprints:
+            app.register_blueprint(gallery_bp)
+    except Exception:
+        app.logger.warning("ComfyCaption: vendored Gallery browser unavailable", exc_info=True)
+
     return True
